@@ -1,0 +1,78 @@
+{
+    "activities": [
+        {
+            "locale": "en",
+            "text": "Can you say hello from action server",
+            "channelId": "emulator",
+            "serviceUrl": "http://localhost:3000",
+            "conversation": {
+                "id": "e838b5e7-1df4-acdb-c3dc-9c1f5840e4af"
+            },
+            "address": {
+                "conversation": {
+                    "id": "e838b5e7-1df4-acdb-c3dc-9c1f5840e4af"
+                }
+            },
+            "id": "9ba3711f-3c5a-b508-7cad-cb60d6e0bccf"
+        },
+        {
+            "type": "message",
+            "serviceUrl": "http://localhost:3000",
+            "channelId": "emulator",
+            "conversation": {
+                "id": "e838b5e7-1df4-acdb-c3dc-9c1f5840e4af"
+            },
+            "inputHint": "acceptingInput",
+            "replyToId": "9ba3711f-3c5a-b508-7cad-cb60d6e0bccf",
+            "id": "3519064f-98df-93ca-ff4f-acafeb1e044e",
+            "from": {
+                "id": "directline",
+                "name": "directline"
+            },
+            "text": "Hi this message is comming from action server"
+        },
+        {
+            "type": "message",
+            "serviceUrl": "http://localhost:3000",
+            "channelId": "emulator",
+            "conversation": {
+                "id": "e838b5e7-1df4-acdb-c3dc-9c1f5840e4af"
+            },
+            "inputHint": "acceptingInput",
+            "replyToId": "9ba3711f-3c5a-b508-7cad-cb60d6e0bccf",
+            "id": "289db65a-49c8-c4aa-53d6-036c80e22430",
+            "from": {
+                "id": "directline",
+                "name": "directline"
+            },
+            "name": "payload",
+            "payload": [
+                {
+                    "type": "Button",
+                    "elements": [
+                        {
+                            "name": "confirm-yes",
+                            "label": "Yes",
+                            "value": "yes"
+                        },
+                        {
+                            "name": "confirm-no",
+                            "label": "No",
+                            "value": "no"
+                        }
+                    ]
+                },
+                {
+                    "type": "TextField",
+                    "elements": [
+                        {
+                            "placeholder": "type your name",
+                            "name": "user-name"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "watermark": 3
+}

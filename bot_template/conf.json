@@ -1,0 +1,17 @@
+{
+  "settings":
+   {
+    "nlp":{
+      "forceNER":true,
+      "modelFileName":"model.nlp"
+    },
+    "api-server": {
+      "port": 3000
+    },
+    "bot": {
+      "scripts": ["./script.dlg"],
+      "actions": ["./actions"]
+    }
+  },
+  "use": ["Basic","ExpressApiServer","DirectlineConnector", "Bot","ConsoleConnector"]
+}
