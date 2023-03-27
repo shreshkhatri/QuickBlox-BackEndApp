@@ -77,7 +77,16 @@ Following are the list of the APIs and their descriptions which are present in t
 |/update-entity-data/:entityType	| Used for updating the entity definition. The type could be either synonym or the regex one.
 |/insert-entity-data/:entityType	| Used for creating an entity. The entity could either be synonym or regex as specified by the entityType param received and the payload received via HTTP request body.
 |/get-entity-list	| Used for retrieving and displaying existing list of entities for a project. Helps user to see what entities exists and what value they hold
-|/get-entity-name-list	|Used for retrieving the list of entities when annotating the entity at the time of FAQ dataset creation. The list of the entity appears as a popover box content while annotating the utterance or static response during the creation of FAQ dataset.
-	
-
-
+|/get-entity-name-list	|Used for retrieving the list of entities when annotating the entity at the time of FAQ dataset creation. The list of the entity appears as a popover box content while annotating the utterance or static response during the creation of FAQ dataset.|
+|/get-intent-data| used for retrieving the list of intents created. The difference between the Q&A dataset and intent only dataset is that the Q&A dataset has fixed response but intent only dataset have intent data consisting of the intent category and the utterances only. The reason of creating intent only dataset is to be able create a sequence of conversation or conversation flow. |
+|/get-qandadata-count | an endpoint for retrieving the count for Q&A dataset to apply pagination feature while showing Q&A data |
+|/get-scripts-count | an endpoint for retrieving the count for script dataset while showing them in the form of pages. |
+|/get-script-names | Used for retrieving the list of names of existing scripts. We need list of scripts while we are creating script and since one script can invoke another script. We need to see list of scripts while linking a current script to the next script. |
+|/get-intent-to-link-names | Response present in any Q&A dataset can be triggered by a step in conversation flow. This endpoint retrieves intents from Q&A dataset list. |
+|/get-intent-only-names | The endpoint returns the list of intents having only utterances. Those intents will be used to trigger a conversation script. Therefore, these intents will not have any responses predefined and they are candidate intents for invoking the script or conversation flow. |
+| /save-intent-data | The endpoint is used for saving newly created QandA data (either with static response or action code ) into the database. |
+|/save-script-data | Used for saving newly created script flow to the database |
+|/update-script-data | The endpoint is used for updatig the existing script data into the database. |
+|/get-script-data | Used for retrieving all the existing scirpt data for showing them on page. |
+|/update-intent-data | Used for updating the existing intent only dataset. The changes could be addition or removal of utterance from the utterance list. |
+|
