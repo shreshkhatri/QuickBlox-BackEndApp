@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const schema_project_data = {
   "title": "Project Data ",
   "description": "JSON structure for incoming project data",
@@ -42,8 +41,7 @@ const schema_project_data = {
     "required": ["projectName", "settings"]
   }
 }
-=======
->>>>>>> b60442086acbd022b27141726f7da23642ec8ec4
+
 
 const schema_qanda_data = {
   "title": "QandA data",

@@ -20,12 +20,10 @@
     "jest": "^29.3.1",
     "jsonschema": "^1.4.1",
     "jsonwebtoken": "^9.0.0",
-<<<<<<< HEAD
-    "logger": "^0.0.1",
-=======
     "kill-with-style": "^1.1.0",
->>>>>>> b60442086acbd022b27141726f7da23642ec8ec4
+    "logger": "^0.0.1",
     "mongodb": "^4.13.0",
+    "pg": "^8.10.0",
     "stopword": "^2.0.7"
   },
   "scripts": {

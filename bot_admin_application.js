@@ -620,6 +620,108 @@ router.post('/update-botserver-status',
         })
     }
   })
+  
+
+
+//Route to update openAI model settings
+router.post('/update-openAI-settings',
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+
+      return res.status(400).json({ severity: 'error', message: 'Required properties[projectName,status type] validation failed.' });
+    }
+    else {
+      console.log(req.body)
+      const { projectName, isBotServerOnline } = req.body
+      const { useremail } = req.cookies
+      const searchQuery = { useremail, projectName }
+      const options = {
+        projection: {
+          _id: 0,
+          'settings.isBotServerOnline': 1,
+          'settings.currentBotServerPort': 1,
+          'projectFolderName': 1
+        }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+
+          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(searchQuery, options)
+          console.log(response)
+
+          if (response && response.hasOwnProperty('settings') && response.settings.hasOwnProperty('currentBotServerPort')) {
+            if (!isBotServerOnline) {
+              console.log(response.settings.currentBotServerPort)
+              
+              exec(`npx kill-port ${response.settings.currentBotServerPort}`, async (err, stdout, stderr) => {
+                if (err) {
+                  return res.status(500).json({ severity: 'error', message: 'Model could not be deactivated at the moment. Please try again later.' })
+                }
+                if (stdout) {
+                  const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+                    $set: {
+                      "settings.isBotServerOnline": false
+                    }
+                  })
+                  return res.status(200).json({ isBotServerOnline:false,severity: 'success', message: 'Model deactivated successfully' })
+                }
+
+              });
+            }
+            else if (isBotServerOnline) {
+              console.log('Turning on model')
+              initializeAndRunBotServer(useremail, projectName, response.projectFolderName)
+              //updating currently active port and bot-online status for the chatbtot
+              const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+                $set: {
+                  "settings.isBotServerOnline": true
+                }
+              })
+              
+              return res.status(200).json({ isBotServerOnline:true,severity: 'success', message: 'Model is restarting...' })
+            }
+
+          }
+
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Database error has occured while obtaining the model status' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+//Route to retrieve openAI model list
+  router.post('/get-openAI-models-list'
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      console.log(req.body)
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          console.log('Retrieving model list')
+          return res.status(200).json({modellist:['12']})
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
 
 //REVIEWED REMOVE THIS ONE
 router.post('/insert-qana-data/:type', async (req, res) => {
@@ -2169,3 +2271,5 @@ app.use('/botmanagement', router)
 app.listen(port, () => {
   logger.log(`Bot Admin application started running on prot  ${port} `)
 })
+
+module.exports = {}
