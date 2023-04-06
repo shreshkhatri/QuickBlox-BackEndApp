@@ -1,8 +1,8 @@
 {
-  "name": "04.bot",
-  "version": "1.0.0",
+  "name": "qbot",
+  "version": "0.1.0",
   "description": "",
-  "main": "index.js",
+  "main": "bot_admin_application.js",
   "dependencies": {
     "@nlpjs/basic": "^4.26.1",
     "@nlpjs/bot": "^4.26.1",
@@ -20,16 +20,13 @@
     "jest": "^29.3.1",
     "jsonschema": "^1.4.1",
     "jsonwebtoken": "^9.0.0",
-<<<<<<< HEAD
     "logger": "^0.0.1",
-=======
     "kill-with-style": "^1.1.0",
->>>>>>> b60442086acbd022b27141726f7da23642ec8ec4
     "mongodb": "^4.13.0",
     "stopword": "^2.0.7"
   },
   "scripts": {
-    "start": "node index1.js",
+    "start": "node bot_admin_application.js",
     "test": "jest"
   },
   "author": "",
