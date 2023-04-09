@@ -1448,7 +1448,7 @@ router.put('/update-entity-data/:entityType', async (req, res) => {
 router.post('/insert-entity-data/:entityType', async (req, res) => {
 
   var schemaValidationResult;
-  logger.log(req.params)
+  
   if (req.params['entityType'] && req.params['entityType'] == entityType[0]) {
     schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_entity_synonym);
   }

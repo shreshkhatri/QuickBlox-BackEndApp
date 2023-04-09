@@ -167,11 +167,6 @@ const schema_qanda_entity_synonym = {
   "description": "JSON structure for incoming entity data information containing synonym definition ",
   "type": "object",
   "properties": {
-    "email": {
-      "description": "a part of primary key for identifying the project in MongoDB",
-      "type": "string",
-      "pattern": "^\\b(\\w[-._\\w]*\\w@\\w[-._\\w]*\\w\\.\\w{2,3})\\b$" //this is to ensure that the action name always starts with '/'
-    },
     "projectName": {
       "description": "jstring representation for the project",
       "type": "string",
@@ -226,7 +221,7 @@ const schema_qanda_entity_synonym = {
       "required": ["entity", "type", "value", "description"]
     }
   },
-  "required": ["email", "projectName", "locale", "payload"]
+  "required": ["projectName", "locale", "payload"]
 }
 
 const schema_qanda_entity_regex = {
@@ -234,11 +229,6 @@ const schema_qanda_entity_regex = {
   "description": "JSON structure for incoming entity data containing regex definition",
   "type": "object",
   "properties": {
-    "email": {
-      "description": "a part of primary key for identifying the project in MongoDB",
-      "type": "string",
-      "pattern": "^\\b(\\w[-._\\w]*\\w@\\w[-._\\w]*\\w\\.\\w{2,3})\\b$" //this is to ensure that the action name always starts with '/'
-    },
     "projectName": {
       "description": "jstring representation for the project",
       "type": "string",
@@ -284,7 +274,7 @@ const schema_qanda_entity_regex = {
       "required": ["entity", "type", "value", "description"]
     }
   },
-  "required": ["email", "projectName", "locale", "payload"]
+  "required": [ "projectName", "locale", "payload"]
 }
 
 
