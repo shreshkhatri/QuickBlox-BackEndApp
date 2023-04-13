@@ -814,7 +814,7 @@ router.post('/get-openAI-bulk-utterance-generation',
               {
               model:response.modelName,
               prompt:`Rephrase each sentence in the list: ${JSON.stringify(utterancesForAug)} in ${numOfSamplesToGenerate} different ways. Combine all those samples and return as one single array of strings`,
-              temperature:1.3,
+              temperature:.8,
               max_tokens:2048
             }).then((response) => {
               const outputText = response.data.choices[0].text
@@ -832,12 +832,101 @@ router.post('/get-openAI-bulk-utterance-generation',
 
             }).catch((error) => {
               console.log(error)
-              return { severity: 'error', message: 'Some error occured. Please try again with bit differnt sample utterances.' }
+              return { severity: 'error', message: 'Some error occured. Please try \n to ensure you have selected correct model i.e. model compatible with completion API \n Or try again with bit differnt sample utterances.' }
             });
           
 
             if (Array.isArray(modelReadResponse)) {
-              return res.status(200).json(modelReadResponse)
+              return res.status(200).json({augmentedUtterancesList:modelReadResponse})
+            }
+            else {
+              return res.status(500).json(modelReadResponse)
+            }
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+//Route for generating and sendng bluk answers or responses
+router.post('/get-openAI-bulk-answers-generation',
+  body('projectName').notEmpty().isString().trim().escape(),
+  body('answersForAug').isArray().notEmpty(),
+  body('numOfSamplesToGenerate').isInt().notEmpty()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+      console.log(req.body)
+
+      const options = {
+        projection: { 
+          _id: 0, 
+          "openAIApiKey": "$settings.openAISettings.openAIApiKey",
+          "modelName":"$settings.openAISettings.rephraseBotResponse.modelName"
+        }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+          
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            console.log(response)
+            const configuration = new openai.Configuration({
+              organization: '',
+              apiKey: response.openAIApiKey
+            })
+          
+            const openAIClient = new openai.OpenAIApi(configuration)
+            const {answersForAug,numOfSamplesToGenerate}=req.body
+
+            // Call the createChatCompletion  method with bulk generation instruction
+  
+            const modelReadResponse = await openAIClient.createCompletion(
+              {
+              model:response.modelName,
+              prompt:`Rephrase each sentence in the list: ${JSON.stringify(answersForAug)} in ${numOfSamplesToGenerate} different ways. Combine all those samples and return as one single array of strings`,
+              temperature:.8,
+              max_tokens:2048
+            }).then((response) => {
+              const outputText = response.data.choices[0].text
+              console.log(outputText)
+              const indexOpenSquareBracket  = outputText.indexOf('[')
+              var indexCloseSquareBracket  = outputText.indexOf(']')
+              if (indexCloseSquareBracket==-1){
+                outputText+=']'
+                indexCloseSquareBracket=outputText.indexOf(']')
+              }
+              console.log('Index open [',indexOpenSquareBracket)
+              console.log('Index close ]',indexCloseSquareBracket)
+              const finalStingVersionList = outputText.substring(indexOpenSquareBracket,indexCloseSquareBracket+1)
+              console.log(JSON.parse(finalStingVersionList))
+
+              return JSON.parse(finalStingVersionList)
+
+            }).catch((error) => {
+              console.log(error)
+              return { severity: 'error', message: 'Some error occured. Please try \n to ensure you have selected correct model i.e. model compatible with completion API \n Or try again with bit differnt sample answers.' }
+            });
+          
+
+            if (Array.isArray(modelReadResponse)) {
+              return res.status(200).json({augmentedAnswersList:modelReadResponse})
             }
             else {
               return res.status(500).json(modelReadResponse)
