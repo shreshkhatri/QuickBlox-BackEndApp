@@ -10,7 +10,7 @@ const { exec } = require('child_process')
 const cors = require('cors');
 var cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
-const dotenv = require('dotenv')
+const dotenv = require('dotenv').config()
 const express = require('express')
 
 const app = express()
@@ -58,7 +58,6 @@ const qandaDataType = ['static', 'dynamic']
 //Array object for holding the bot process created during run time
 const allBotProcesses = []
 
-dotenv.config()
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser())
