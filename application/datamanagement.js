@@ -1,9 +1,10 @@
 const { logger } = require('@nlpjs/logger');
+
 //Importing MongoClient
 const { MongoClient } = require('mongodb');
 
 // Connection URL
-const url = 'mongodb+srv://shresh:QuickBlox2468@cluster0.aczk7.mongodb.net';
+const url = 'mongodb://localhost:27017';
 const client = new MongoClient(url);
 
 //database name

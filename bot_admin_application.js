@@ -1,4 +1,5 @@
 const { logger } = require('@nlpjs/logger');
+const openai = require('openai');
 const fse = require('fs-extra');
 //the folder where the template for the chatbot resides
 const SOURCE_FOLDER = 'bot_template'
@@ -313,7 +314,24 @@ router.post('/create-chatbot-project',
               'trainingLog': [],
               'projectName': projectName,
               'languages': languages,
-              'settings': settings,
+              'settings': {
+                ...settings,
+                openAISettings:{
+                  openAIApiKey:'',
+                  datasetGeneration:{
+                    allow:false,
+                    modelName:''
+                  },
+                  fallbackResponse:{
+                    allow:false,
+                    modelName:''
+                  },
+                  rephraseBotResponse:{
+                    allow:false,
+                    modelName:''
+                  }
+                }
+              },
               'modelTrainable': false,
               'projectSettingsEditable': false,
               'selectedLanguage': languages[0],
@@ -579,7 +597,7 @@ router.post('/update-botserver-status',
           if (response && response.hasOwnProperty('settings') && response.settings.hasOwnProperty('currentBotServerPort')) {
             if (!isBotServerOnline) {
               console.log(response.settings.currentBotServerPort)
-              
+
               exec(`npx kill-port ${response.settings.currentBotServerPort}`, async (err, stdout, stderr) => {
                 if (err) {
                   return res.status(500).json({ severity: 'error', message: 'Model could not be deactivated at the moment. Please try again later.' })
@@ -590,7 +608,7 @@ router.post('/update-botserver-status',
                       "settings.isBotServerOnline": false
                     }
                   })
-                  return res.status(200).json({ isBotServerOnline:false,severity: 'success', message: 'Model deactivated successfully' })
+                  return res.status(200).json({ isBotServerOnline: false, severity: 'success', message: 'Model deactivated successfully' })
                 }
 
               });
@@ -604,8 +622,8 @@ router.post('/update-botserver-status',
                   "settings.isBotServerOnline": true
                 }
               })
-              
-              return res.status(200).json({ isBotServerOnline:true,severity: 'success', message: 'Model is restarting...' })
+
+              return res.status(200).json({ isBotServerOnline: true, severity: 'success', message: 'Model is restarting...' })
             }
 
           }
@@ -620,11 +638,19 @@ router.post('/update-botserver-status',
         })
     }
   })
-  
+
 
 
 //Route to update openAI model settings
 router.post('/update-openAI-settings',
+  body('projectName').notEmpty().trim(),
+  body('openAIApiKey').trim().escape(),
+  body('allowOpenAIRephraseResponse').isBoolean().notEmpty(),
+  body('selectedOpenAIModelForRephrasingBotResponse').isString().trim(),
+  body('allowOpenAIResponseGeneration').notEmpty().isBoolean().notEmpty(),
+  body('selectedOpenAIModelForResponseGeneration').isString().trim(),
+  body('allowOpenAIDataAugmentation').isBoolean().notEmpty(),
+  body('selectedOpenAIModelForQAndADataGeneration').isString(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -633,62 +659,47 @@ router.post('/update-openAI-settings',
     }
     else {
       console.log(req.body)
-      const { projectName, isBotServerOnline } = req.body
+      const {
+        projectName,
+        openAIApiKey,
+        allowOpenAIRephraseResponse,
+        selectedOpenAIModelForRephrasingBotResponse,
+        allowOpenAIResponseGeneration,
+        selectedOpenAIModelForResponseGeneration,
+        allowOpenAIDataAugmentation,
+        selectedOpenAIModelForQAndADataGeneration
+      } = req.body
       const { useremail } = req.cookies
       const searchQuery = { useremail, projectName }
-      const options = {
-        projection: {
-          _id: 0,
-          'settings.isBotServerOnline': 1,
-          'settings.currentBotServerPort': 1,
-          'projectFolderName': 1
-        }
-      }
 
       await getConnectionObject()
         .then(async (connectionObject) => {
-
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(searchQuery, options)
-          console.log(response)
-
-          if (response && response.hasOwnProperty('settings') && response.settings.hasOwnProperty('currentBotServerPort')) {
-            if (!isBotServerOnline) {
-              console.log(response.settings.currentBotServerPort)
-              
-              exec(`npx kill-port ${response.settings.currentBotServerPort}`, async (err, stdout, stderr) => {
-                if (err) {
-                  return res.status(500).json({ severity: 'error', message: 'Model could not be deactivated at the moment. Please try again later.' })
-                }
-                if (stdout) {
-                  const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
-                    $set: {
-                      "settings.isBotServerOnline": false
-                    }
-                  })
-                  return res.status(200).json({ isBotServerOnline:false,severity: 'success', message: 'Model deactivated successfully' })
-                }
-
-              });
+          const updateOpenAISettingResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+            $set: {
+              "settings.openAISettings": {
+                datasetGeneration: {
+                  allow: allowOpenAIDataAugmentation,
+                  modelName: selectedOpenAIModelForQAndADataGeneration
+                },
+                fallbackResponse: {
+                  allow: allowOpenAIResponseGeneration,
+                  modelName: selectedOpenAIModelForResponseGeneration
+                },
+                rephraseBotResponse: {
+                  allow: allowOpenAIRephraseResponse,
+                  modelName: selectedOpenAIModelForRephrasingBotResponse
+                },
+                openAIApiKey: openAIApiKey
+              }
             }
-            else if (isBotServerOnline) {
-              console.log('Turning on model')
-              initializeAndRunBotServer(useremail, projectName, response.projectFolderName)
-              //updating currently active port and bot-online status for the chatbtot
-              const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
-                $set: {
-                  "settings.isBotServerOnline": true
-                }
-              })
-              
-              return res.status(200).json({ isBotServerOnline:true,severity: 'success', message: 'Model is restarting...' })
-            }
-
+          }, { upsert: true })
+          if (updateOpenAISettingResponse.modifiedCount == 1) {
+            return res.status(200).json({ severity: 'success', message: 'OpenAI settings updated successfully.' })
           }
-
         })
         .catch(error => {
           logger.log(error)
-          return res.status(500).json({ severity: 'error', message: 'Database error has occured while obtaining the model status' })
+          return res.status(500).json({ severity: 'error', message: 'Database error occured while updating the settings' })
         })
         .finally(() => {
 
@@ -696,8 +707,12 @@ router.post('/update-openAI-settings',
     }
   })
 
+
+
+
 //Route to retrieve openAI model list
-  router.post('/get-openAI-models-list'
+router.post('/get-openAI-models-list',
+  body('projectName').notEmpty().isString().trim().escape()
   , async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -705,15 +720,178 @@ router.post('/update-openAI-settings',
       return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
     }
     else {
-      console.log(req.body)
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+
+      const options = {
+        projection: { _id: 0, "openAIApiKey": "$settings.openAISettings.openAIApiKey" }
+      }
+
       await getConnectionObject()
         .then(async (connectionObject) => {
-          console.log('Retrieving model list')
-          return res.status(200).json({modellist:['12']})
+          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            const configuration = new openai.Configuration({
+              organization: '',
+              apiKey: response.openAIApiKey
+            })
+            const openAIClient = new openai.OpenAIApi(configuration)
+
+            // Call the models.list() method to retrieve a list of available models
+            const modelReadResponse = await openAIClient.listModels().then((response) => {
+            
+              const modelList = response.data.data
+              const finalModalList = modelList.map(modelDetails => modelDetails.id)
+              return finalModalList
+
+            }).catch((error) => {
+              return { severity: 'error', message: 'Remote connection error occured while retrieving model list.' }
+            });
+            
+
+            if (Array.isArray(modelReadResponse)) {
+              return res.status(200).json(modelReadResponse)
+            }
+            else {
+              return res.status(500).json(modelReadResponse)
+            }
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
         })
         .catch(error => {
           logger.log(error)
           return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+//Route for generating and sendng bluk utterances
+router.post('/get-openAI-bulk-utterance-generation',
+  body('projectName').notEmpty().isString().trim().escape(),
+  body('utterancesForAug').isArray().notEmpty(),
+  body('numOfSamplesToGenerate').isInt().notEmpty()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+      console.log(req.body)
+
+      const options = {
+        projection: { 
+          _id: 0, 
+          "openAIApiKey": "$settings.openAISettings.openAIApiKey",
+          "modelName":"$settings.openAISettings.datasetGeneration.modelName"
+        }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+          
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            const configuration = new openai.Configuration({
+              organization: '',
+              apiKey: response.openAIApiKey
+            })
+            
+            const openAIClient = new openai.OpenAIApi(configuration)
+            const {utterancesForAug,numOfSamplesToGenerate}=req.body
+
+            // Call the createChatCompletion  method with bulk generation instruction
+  
+            const modelReadResponse = await openAIClient.createCompletion(
+              {
+              model:response.modelName,
+              prompt:`Rephrase each sentence in the list: ${JSON.stringify(utterancesForAug)} in ${numOfSamplesToGenerate} different ways. Combine all those samples and return as one single array of strings`,
+              temperature:1.3,
+              max_tokens:2048
+            }).then((response) => {
+              const outputText = response.data.choices[0].text
+              console.log(outputText)
+              const indexOpenSquareBracket  = outputText.indexOf('[')
+              var indexCloseSquareBracket  = outputText.indexOf(']')
+              if (indexCloseSquareBracket==-1){
+                outputText+=']'
+                indexCloseSquareBracket=outputText.indexOf(']')
+              }
+              const finalStingVersionList = outputText.substring(indexOpenSquareBracket,indexCloseSquareBracket+1)
+              console.log(JSON.parse(finalStingVersionList))
+
+              return JSON.parse(finalStingVersionList)
+
+            }).catch((error) => {
+              console.log(error)
+              return { severity: 'error', message: 'Some error occured. Please try again with bit differnt sample utterances.' }
+            });
+          
+
+            if (Array.isArray(modelReadResponse)) {
+              return res.status(200).json(modelReadResponse)
+            }
+            else {
+              return res.status(500).json(modelReadResponse)
+            }
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+//Route to retrieve openAI model list
+router.post('/get-openAI-settings',
+  body('projectName').notEmpty().isString().trim().escape()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI settings.' });
+    }
+    else {
+      //query for obraining the openAI settings
+      const query = {
+        useremail: req.cookies.useremail,
+        projectName: req.body.projectName
+      }
+      const options = {
+        projection: {
+          _id: 0,
+          openAIApiKey: "$settings.openAISettings.openAIApiKey",
+          rephraseBotResponse: "$settings.openAISettings.rephraseBotResponse",
+          fallbackResponse: "$settings.openAISettings.fallbackResponse",
+          datasetGeneration: "$settings.openAISettings.datasetGeneration"
+        }
+      }
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+          console.log(response)
+          return res.status(200).json(response)
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Database error occured while retrieving the OpenAI settings.' })
         })
         .finally(() => {
 
@@ -800,7 +978,7 @@ router.post('/insert-qana-data/:type', async (req, res) => {
       })
       .catch(error => {
         logger.log(error)
-        return res.status(500).json({ severity: 'error', message: 'Database error has occured while inserting QandA data. Please try again later or may be different intent name and/or Action Name should be specified.' })
+        return res.status(500).json({ severity: 'error', message: 'Database error has occured while inserting QandA data. Please try again later.' })
       })
       .finally(() => {
         //closeConnection()
@@ -832,6 +1010,7 @@ router.get('/get-project-data', async (req, res) => {
   await getConnectionObject()
     .then(async (connectionObject) => {
       const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+      console.log(response)
       if (response) {
         return res.status(200).json(response)
       }
@@ -1063,8 +1242,8 @@ router.post('/search-script-data',
       await getConnectionObject()
         .then(async (connectionObject) => {
           const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
-        
-            return res.status(200).json(response)
+
+          return res.status(200).json(response)
         })
         .catch(error => {
           return res.status(500).json({ severity: 'error', message: 'Database error has occured while searching script data. Please try again later' })
@@ -1350,7 +1529,7 @@ router.post('/delete-script',
   body('locale').notEmpty().isString().trim().escape(),
   body('scriptName').notEmpty().isString().trim().escape()
   , async (req, res) => {
-    
+
     const filter = {
       'useremail': req.cookies.useremail,
       'projectName': req.body.projectName,
@@ -1362,7 +1541,7 @@ router.post('/delete-script',
       return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while deleting the script' });
     }
     else {
-      
+
       await getConnectionObject()
         .then(async (connectionObject) => {
           const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(filter, {
@@ -1371,7 +1550,7 @@ router.post('/delete-script',
             }
           })
           logger.log(response)
-          if (response.modifiedCount==1) {
+          if (response.modifiedCount == 1) {
             return res.status(200).json({})
           }
           else {
@@ -1448,7 +1627,7 @@ router.put('/update-entity-data/:entityType', async (req, res) => {
 router.post('/insert-entity-data/:entityType', async (req, res) => {
 
   var schemaValidationResult;
-  logger.log(req.params)
+
   if (req.params['entityType'] && req.params['entityType'] == entityType[0]) {
     schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_entity_synonym);
   }
@@ -1923,7 +2102,7 @@ router.post('/save-script-data', async (req, res) => {
         }).toArray()
         logger.log(checkpoint)
         if (checkpoint.length != 0) {
-          return res.status(500).json({ severity: 'error', message:  'Please choose different script name.' })
+          return res.status(500).json({ severity: 'error', message: 'Please choose different script name.' })
         }
 
         //processing each step in order to update related documents in database
@@ -2005,12 +2184,12 @@ router.post('/save-script-data', async (req, res) => {
           }
           if (hasTriggeringIntent) {
             if (updateIntentResponse.modifiedCount == 1 && updateScriptResponse.modifiedCount == 1) {
-              return res.status(200).json({ severity: 'success', message:  'Script data saved successfully.' })
+              return res.status(200).json({ severity: 'success', message: 'Script data saved successfully.' })
             }
           }
           else {
             if (updateScriptResponse.modifiedCount == 1) {
-              return res.status(200).json({ severity: 'success', message:  'Script data saved successfully.' })
+              return res.status(200).json({ severity: 'success', message: 'Script data saved successfully.' })
             }
           }
         })
