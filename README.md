@@ -2,7 +2,7 @@ The application developed mainly has 3 components. They are as follows:
 1. Backend application (Node JS application)
 2. Frontend application (React web app consisting of chatbot widget)
 
-**BACKEND APPLICATION**
+## BACKEND APPLICATION
 
 The back-end application has been created JavaScript and runs in node JS environment. The purpose of the backend application is to avail HTTP endpoints the operations: user login, chatbot dataset handling and chatbot managements. Backend application has used following features:
 
@@ -16,7 +16,7 @@ The backend application has the following folder structure.
  
 File and folder descriptions are as follows:
 
-**FOLDER: BOT_TEMPLATE**
+### FOLDER: BOT_TEMPLATE
 
 The folder contains the required set up files for chatbot. The template files present adheres to the file content found inside the repository.
 
@@ -31,7 +31,7 @@ Some descriptions about the files are present below:
 
   But during actual run time this file is run as a child process using exec function from the parent node application.
 
-**FOLDER: APPLICATION**
+### FOLDER: APPLICATION
 
 This folder is a collection of the files that are used as a helper files for the main backend application. Without these files, application's functionality will be incomplete. Some descriptions about the files present inside this folder are as follows:
 - Datamanagement.js
@@ -48,7 +48,7 @@ This file is a collection of pipelines used for aggregation by MongoDB.  Many pi
 - FileHandle.js
 The model cannot be treated directly using the data retrieved from the database. It has to be converted into the structure and file format understood by the chatbot. This file holds the functions that are responsible for creating visible dataset files using the data provided from the database. The training data stored in MongoDB data is looped through and transformed into files format that is used by the chatbot for training the dataset.  This file also has a function to write the chatbot configuration obtained from the database into a file.
 
-**FILE: BOT_ADMIN_APPLICATION.JS**
+### FILE: BOT_ADMIN_APPLICATION.JS
 
 This file is the main application file that when run spins the main node js application. The file links all the rest of the files described above during the operation. Following are the points to observe about this file.
 - The port specified is 4000, initially.
@@ -90,3 +90,10 @@ Following are the list of the APIs and their descriptions which are present in t
 |/get-script-data | Used for retrieving all the existing scirpt data for showing them on page. |
 |/update-intent-data | Used for updating the existing intent only dataset. The changes could be addition or removal of utterance from the utterance list. |
 |
+
+### INSTALLATION INSTRUCTIONS
+
+1. Get the code
+2. Run `npm install`
+3. In .env set MONGODB_URL
+4. Run `npm run start`

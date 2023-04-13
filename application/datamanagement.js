@@ -1,10 +1,10 @@
 const { logger } = require('@nlpjs/logger');
 //Importing MongoClient
 const { MongoClient } = require('mongodb');
+const dotenv = require('dotenv')
 
 // Connection URL
-const url = 'mongodb+srv://shresh:QuickBlox2468@cluster0.aczk7.mongodb.net';
-const client = new MongoClient(url);
+const client = new MongoClient(process.env.MONGODB_URL);
 
 //database name
 const DATABASENAME = 'Quickblox';
