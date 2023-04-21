@@ -22,6 +22,10 @@ dialog main
 `
 }
 
+function createdotEnvFile(destination_dir,data){
+    fse.writeFileSync(`${destination_dir}/.env`,data)
+}
+
 //function to copy bot template files to user's project file
 function copyBotTemplateFiles(source_dir, destination_dir) {
     return fse.copy(source_dir, destination_dir)
@@ -302,4 +306,4 @@ function readScripts(trainingData, scriptVariable, actionsObject) {
 
 
 
-module.exports = { copyBotTemplateFiles, updateBotConfigurationOnFile, prepareTrainingData }
+module.exports = { copyBotTemplateFiles, updateBotConfigurationOnFile, prepareTrainingData ,createdotEnvFile}

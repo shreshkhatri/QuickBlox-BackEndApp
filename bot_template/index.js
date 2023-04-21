@@ -1,5 +1,7 @@
 const { dockStart } = require('@nlpjs/basic');
 const { listFilesAbsolute } = require('@nlpjs/core-loader');
+const dotenv = require('dotenv');
+dotenv.config();
 
 (async () => {
   const dock = await dockStart();

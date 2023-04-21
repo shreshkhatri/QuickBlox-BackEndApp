@@ -4,20 +4,13 @@ const { logger } = require('@nlpjs/logger');
 const { MongoClient } = require('mongodb');
 
 // Connection URL
-const url = 'mongodb://localhost:27017';
-const client = new MongoClient(url);
 
-//database name
-const DATABASENAME = 'Quickblox';
-const PROJECTS_COLLECTION_NAME='chatbot_projects'
-const USERS_COLLECTION_NAME='users'
-const CONVERSATIONS_COLLECTION_NAME='conversations'
-
+const client = new MongoClient(process.env.DB_URL);
 
 async function getConnectionObject() {
   
     // Use connect method to connect to the server
-  return (await client.connect()).db(DATABASENAME);
+  return (await client.connect()).db(process.env.DATABASENAME);
 }
 
 function closeConnection(){
@@ -25,4 +18,4 @@ function closeConnection(){
     client.close()
 }
 
-module.exports={getConnectionObject,PROJECTS_COLLECTION_NAME,USERS_COLLECTION_NAME,DATABASENAME,CONVERSATIONS_COLLECTION_NAME,closeConnection}
+module.exports={getConnectionObject,closeConnection}
