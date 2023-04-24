@@ -25,13 +25,10 @@
     "mongodb": "^4.13.0",
     "stopword": "^2.0.7"
   },
-  "workspaces": [
-    "bot_template/*"
-  ],
   "scripts": {
     "start": "node bot_admin_application.js",
     "test": "jest",
-    "postinstall": "node configure.js"
+    "postinstall": "node configure.js && cd bot_template && npm i"
   },
   "author": "",
   "license": "ISC"
