@@ -63,7 +63,7 @@ app.use(express.json());
 app.use(cookieParser())
 
 //for implementing CORS policy on local machine
-app.use(cors({ origin: 'http://localhost:3001', credentials: true }));
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 
 
 //function to initialize and run bot sever
