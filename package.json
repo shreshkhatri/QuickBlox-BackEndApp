@@ -28,7 +28,7 @@
   "scripts": {
     "start": "node bot_admin_application.js",
     "test": "jest",
-    "postinstall": "node configure.js && cd bot_template && npm i && cd custom-express-api-server && npm i"
+    "postinstall": "node configure.js && npm --prefix ./bot_template i && npm --prefix ./bot_template/custom-express-api-server i"
   },
   "author": "",
   "license": "ISC"
