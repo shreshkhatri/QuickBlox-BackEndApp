@@ -95,5 +95,5 @@ Following are the list of the APIs and their descriptions which are present in t
 
 1. Get the code
 2. Run `npm install`
-3. In .env set MONGODB_URL
+3. In .env set MONGODB_URL, FRONTEND_URL, KEY_PATH(if https used), and CERT_PATH(if https used)
 4. Run `npm run start`
