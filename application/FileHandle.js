@@ -85,6 +85,8 @@ async function updateBotConfigurationOnFile(destination_dir, settings) {
 
             //replacing the exisiting port number with the integer
             object['settings']['api-server']['port'] = parseInt(settings.botServerPort)
+            //set frontend url for CORS
+            object['settings']['api-server']['cors']['origin'] = process.env.FRONTEND_URL
             
             //replacing the threshold vlue for the unerlying NLP model
             object['settings']['nlp']['threshold'] = parseFloat(settings.nlu.threshold)

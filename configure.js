@@ -17,6 +17,6 @@ const generateRandomString = (length) => {
 // Check if .env file exists, and create it with a new `SECRET` variable if it doesn't
 if (!fs.existsSync(envPath)) {
   const newSecret = generateRandomString(secretLength);
-  const envContents = `SECRET = "${newSecret}"\nMONGODB_URL = ""\n`;
+  const envContents = `SECRET = "${newSecret}"\nMONGODB_URL = ""\nFRONTEND_URL = ""\n`;
   fs.writeFileSync(envPath, envContents);
 }
