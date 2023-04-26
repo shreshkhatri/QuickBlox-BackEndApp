@@ -1,6 +1,6 @@
 {
   "name": "qbot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "",
   "main": "bot_admin_application.js",
   "dependencies": {
