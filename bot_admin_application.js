@@ -9,9 +9,8 @@ const { exec } = require('child_process')
 const cors = require('cors');
 var cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
-const dotenv = require('dotenv')
+const dotenv = require('dotenv').config()
 const express = require('express')
-dotenv.config()
 const app = express()
 const port = 4000
 const router = express.Router()
@@ -58,13 +57,12 @@ const qandaDataType = ['static', 'dynamic']
 //Array object for holding the bot process created during run time
 const allBotProcesses = []
 
-
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser())
 
 //for implementing CORS policy on local machine
-app.use(cors({ origin: 'http://localhost:3001', credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 
 
 //function to initialize and run bot sever
@@ -351,7 +349,7 @@ router.post('/create-chatbot-project',
             copyBotTemplateFiles(SOURCE_FOLDER, DESTINATION_FOLDER)
               .then(() => {
                 try {
-                  var envfileContent = `DB_URL = ${process.env.DB_URL}\nDATABASENAME = ${process.env.DATABASENAME}\nPROJECTS_COLLECTION_NAME=${process.env.PROJECTS_COLLECTION_NAME}\nUSERS_COLLECTION_NAME=${process.env.USERS_COLLECTION_NAME}\nCONVERSATIONS_COLLECTION_NAME=${process.env.CONVERSATIONS_COLLECTION_NAME}\nUSEREMAIL=${useremail}`
+                  var envfileContent = `DB_URL = ${process.env.MONGODB_URL}\nDATABASENAME = ${process.env.DATABASENAME}\nPROJECTS_COLLECTION_NAME=${process.env.PROJECTS_COLLECTION_NAME}\nUSERS_COLLECTION_NAME=${process.env.USERS_COLLECTION_NAME}\nCONVERSATIONS_COLLECTION_NAME=${process.env.CONVERSATIONS_COLLECTION_NAME}\nUSEREMAIL=${useremail}`
                   //creating .env file will be necessary so that the bot can have access to the database during its operation time
                   createdotEnvFile(DESTINATION_FOLDER, envfileContent)
 
@@ -813,7 +811,6 @@ router.post('/get-openAI-bulk-utterance-generation',
           if (response && response.hasOwnProperty('openAIApiKey')) {
             console.log(response)
             const configuration = new openai.Configuration({
-              organization: '',
               apiKey: response.openAIApiKey
             })
 
@@ -824,7 +821,7 @@ router.post('/get-openAI-bulk-utterance-generation',
               return openAIClient.createCompletion(
                 {
                   model: response.modelName,
-                  prompt: `Generate as a dataset in JSON format for example {"data": [“Hi”, “Hello”]}. Instruction : Rephrase the sentence : ${utterance} in ${numOfSamplesToGenerate} different ways.`,
+                  prompt: `Generate as a dataset in JSON format for example {"data": [“Hi”, “Hello”]}. Instruction : Rephrase the sentence : "${utterance}" in ${numOfSamplesToGenerate} different ways.`,
                   temperature: .8,
                   max_tokens: 2048
                 }).then((response) => {

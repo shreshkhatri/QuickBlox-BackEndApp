@@ -2,10 +2,10 @@ const { logger } = require('@nlpjs/logger');
 
 //Importing MongoClient
 const { MongoClient } = require('mongodb');
+const dotenv = require('dotenv')
 
 // Connection URL
-
-const client = new MongoClient(process.env.DB_URL);
+const client = new MongoClient(process.env.MONGODB_URL);
 
 async function getConnectionObject() {
   

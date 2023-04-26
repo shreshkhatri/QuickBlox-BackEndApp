@@ -8,12 +8,18 @@
     },
     "api-server": {
       "port": 3000,
-      "origin": "https://qbotaequah9Vai1hdel.quickblox.com"
+      "cors":{
+        "origin": "http://localhost",
+        "credentials": true
+      }
     },
     "bot": {
       "scripts": ["./script.dlg"],
       "actions": ["./actions"]
     }
   },
-  "use": ["Basic","ExpressApiServer","DirectlineConnector", "Bot","ConsoleConnector"]
+  "use": ["Basic",{
+    "className": "ExpressApiServer",
+    "path": "./custom-express-api-server"
+  }, "DirectlineConnector", "Bot","ConsoleConnector"]
 }
