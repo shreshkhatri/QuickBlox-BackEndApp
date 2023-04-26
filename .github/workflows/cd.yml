@@ -27,7 +27,8 @@ jobs:
         script: |
           cd /home/ubuntu/QuickBlox-BackEndApp && pm2 stop bot_admin_application.js
           rm -rf /home/ubuntu/QuickBlox-BackEndApp
-          git clone git@github.com:shreshkhatri/QuickBlox_FrontEndApp.git
+	        cd /home/ubuntu/
+          git clone git@github.com:shreshkhatri/QuickBlox-BackEndApp.git
           cd /home/ubuntu/QuickBlox-BackEndApp
           git status
           npm install
