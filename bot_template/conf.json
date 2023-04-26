@@ -3,7 +3,8 @@
    {
     "nlp":{
       "forceNER":true,
-      "modelFileName":"model.nlp"
+      "modelFileName":"model.nlp",
+      "threshold":0.9
     },
     "api-server": {
       "port": 3000,

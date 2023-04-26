@@ -1,4 +1,3 @@
-
 const schema_project_data = {
   "title": "Project Data ",
   "description": "JSON structure for incoming project data",

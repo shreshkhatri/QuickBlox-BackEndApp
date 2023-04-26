@@ -17,6 +17,15 @@ const generateRandomString = (length) => {
 // Check if .env file exists, and create it with a new `SECRET` variable if it doesn't
 if (!fs.existsSync(envPath)) {
   const newSecret = generateRandomString(secretLength);
-  const envContents = `SECRET = "${newSecret}"\nMONGODB_URL = ""\nFRONTEND_URL = ""\nKEY_PATH = "" #Empty if http\nCERT_PATH = "" #Empty if http\n`;
+  const envContents = `
+  SECRET = "${newSecret}"\n
+  MONGODB_URL = ""\n
+  FRONTEND_URL = ""\n
+  KEY_PATH = "" #Empty if http\n
+  CERT_PATH = "" #Empty if http\n
+  DATABASENAME = "Quickblox"\n
+  PROJECTS_COLLECTION_NAME = "chatbot_projects"\n
+  USERS_COLLECTION_NAME = "users"\n
+  CONVERSATIONS_COLLECTION_NAME = "conversations"\n`;
   fs.writeFileSync(envPath, envContents);
 }

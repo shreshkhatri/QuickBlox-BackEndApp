@@ -1,8 +1,7 @@
 const { logger } = require('@nlpjs/logger');
+const openai = require('openai');
 const fse = require('fs-extra');
-//the folder where the template for the chatbot resides
 const SOURCE_FOLDER = 'bot_template'
-
 const bcrypt = require('bcrypt');
 const saltRounds = 12;
 const salt = bcrypt.genSaltSync(saltRounds)
@@ -12,13 +11,12 @@ var cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
 const dotenv = require('dotenv').config()
 const express = require('express')
-
 const app = express()
 const port = 4000
 const router = express.Router()
 const { body, validationResult } = require('express-validator')
 const Validator = require('jsonschema').Validator;
-const { getConnectionObject, PROJECTS_COLLECTION_NAME, USERS_COLLECTION_NAME, CONVERSATIONS_COLLECTION_NAME, closeConnection } = require('./application/datamanagement')
+const { getConnectionObject, closeConnection } = require('./application/datamanagement')
 const {
   schema_qanda_data,
   schema_qanda_data_with_action,
@@ -48,7 +46,8 @@ const {
 const {
   copyBotTemplateFiles,
   updateBotConfigurationOnFile,
-  prepareTrainingData
+  prepareTrainingData,
+  createdotEnvFile
 } = require('./application/FileHandle');
 
 const jsonSchemaValidator = new Validator();
@@ -78,7 +77,7 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
         .then(async (connectionObject) => {
           const searchQuery = { useremail, projectName }
           //updating currently active port and bot-online status for the chatbtot
-          const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+          const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
             $push: {
               "trainingLog": { log: new Date().toLocaleString() + ' ' + err }
             }
@@ -111,7 +110,7 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
       .then(async (connectionObject) => {
         const searchQuery = { useremail, projectName }
         //updating currently active port and bot-online status for the chatbtot
-        const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+        const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
           $push: {
             "trainingLog": { log: new Date().toLocaleString() + ' ' + data }
           }
@@ -133,7 +132,7 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
       .then(async (connectionObject) => {
         const searchQuery = { useremail, projectName }
         //updating currently active port and bot-online status for the chatbtot
-        const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+        const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
           $push: {
             "trainingLog": { log: new Date().toLocaleString() + ' ' + data }
           }
@@ -155,7 +154,7 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
       .then(async (connectionObject) => {
         const searchQuery = { useremail, projectName }
         //updating currently active port and bot-online status for the chatbtot
-        const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+        const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
           $set: {
             "settings.isBotServerOnline": false
           }
@@ -177,7 +176,7 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
       .then(async (connectionObject) => {
         const searchQuery = { useremail, projectName }
         //updating currently active port and bot-online status for the chatbtot
-        const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+        const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
           $set: {
             "settings.isBotServerOnline": false
           }
@@ -218,7 +217,7 @@ router.post('/login',
       const { useremail, password } = req.body
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(USERS_COLLECTION_NAME).findOne(
+          const response = await connectionObject.collection(process.env.USERS_COLLECTION_NAME).findOne(
             { useremail: useremail },
             { projection: { _id: 0, useremail: 1, password: 1 } }
           )
@@ -279,14 +278,14 @@ router.post('/create-chatbot-project',
       await getConnectionObject()
         .then(async (connectionObject) => {
 
-          const finalEmailAvailabilityCheck = await connectionObject.collection(USERS_COLLECTION_NAME).findOne({ useremail: useremail },
+          const finalEmailAvailabilityCheck = await connectionObject.collection(process.env.USERS_COLLECTION_NAME).findOne({ useremail: useremail },
             { projection: { _id: 0, useremail: 1 } })
 
           if (finalEmailAvailabilityCheck && finalEmailAvailabilityCheck.hasOwnProperty('useremail')) {
             return res.status(500).json({ severity: 'error', message: 'Email already exists. Please use different email' })
           }
 
-          const userInsertResponse = await connectionObject.collection(USERS_COLLECTION_NAME).insertOne({
+          const userInsertResponse = await connectionObject.collection(process.env.USERS_COLLECTION_NAME).insertOne({
             'useremail': useremail,
             'password': passwordHash
           })
@@ -294,7 +293,7 @@ router.post('/create-chatbot-project',
           if (!userInsertResponse.insertedId) {
             return res.status(500).json({ severity: 'error', message: 'User information could not be insertd.' })
           }
-          const conversationObjectCreationResponse = await connectionObject.collection(CONVERSATIONS_COLLECTION_NAME).insertOne({
+          const conversationObjectCreationResponse = await connectionObject.collection(process.env.CONVERSATIONS_COLLECTION_NAME).insertOne({
             'useremail': useremail,
             'conversations': []
           })
@@ -305,32 +304,60 @@ router.post('/create-chatbot-project',
           // the folder where the bot template files will be copied for each users
           const projectFolderName = Math.round(new Date().getTime()).toString()
 
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).insertOne(
-            {
-              'useremail': useremail,
-              'projectFolderName': projectFolderName,
-              'trainingLog': [],
-              'projectName': projectName,
-              'languages': languages,
-              'settings': settings,
-              'modelTrainable': false,
-              'projectSettingsEditable': false,
-              'selectedLanguage': languages[0],
-              'datasets': [{
-                'locale': languages[0].locale,
-                'intents': [],
-                'scripts': [],
-                'entities': [],
-                'responseVariables': [],
-                'actions': []
-              }]
-            })
+          const dataToInsert = {
+            'useremail': useremail,
+            'projectFolderName': projectFolderName,
+            'trainingLog': [],
+            'projectName': projectName,
+            'languages': languages,
+            'settings': {
+              ...settings,
+              openAISettings: {
+                openAIApiKey: '',
+                datasetGeneration: {
+                  allow: false,
+                  modelName: ''
+                },
+                fallbackResponse: {
+                  allow: false,
+                  modelName: ''
+                },
+                rephraseBotResponse: {
+                  allow: false,
+                  modelName: ''
+                }
+              }
+            },
+            'modelTrainable': false,
+            'projectSettingsEditable': false,
+            'selectedLanguage': languages[0],
+            'datasets': [{
+              'locale': languages[0].locale,
+              'intents': [],
+              'scripts': [],
+              'entities': [],
+              'responseVariables': [],
+              'actions': []
+            }]
+          }
+
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).insertOne(dataToInsert)
           if (response.insertedId) {
             const DESTINATION_FOLDER = `../${projectFolderName}`
 
             //creating project folder and copying the bot template files from source folder to the destination folder 
             copyBotTemplateFiles(SOURCE_FOLDER, DESTINATION_FOLDER)
               .then(() => {
+                try {
+                  var envfileContent = `DB_URL = ${process.env.MONGODB_URL}\nDATABASENAME = ${process.env.DATABASENAME}\nPROJECTS_COLLECTION_NAME=${process.env.PROJECTS_COLLECTION_NAME}\nUSERS_COLLECTION_NAME=${process.env.USERS_COLLECTION_NAME}\nCONVERSATIONS_COLLECTION_NAME=${process.env.CONVERSATIONS_COLLECTION_NAME}\nUSEREMAIL=${useremail}`
+                  //creating .env file will be necessary so that the bot can have access to the database during its operation time
+                  createdotEnvFile(DESTINATION_FOLDER, envfileContent)
+
+                }
+                catch (error) {
+                  console.log('Error occured while creating .env file inside the project folder ', error)
+                }
+
                 logger.log(`Bot Template files copied to the priject folder ${projectFolderName} successfully.`)
                 if (settings.hasOwnProperty('botServerPort')) {
 
@@ -341,7 +368,7 @@ router.post('/create-chatbot-project',
                       const query1 = { useremail, projectName }
 
                       //updating the 'modelTrainable' and 'projectSettingsEditable' indicatin that the project settings can be changed and modified
-                      const responseModelTrainable = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query1, {
+                      const responseModelTrainable = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query1, {
                         $set: {
                           modelTrainable: true,
                           projectSettingsEditable: true
@@ -360,6 +387,7 @@ router.post('/create-chatbot-project',
               .catch(error => {
                 logger.error(`The Bot template files could not be copied to the project folder ${projectFolderName}`)
               })
+            
 
             const signinToken = jwt.sign(
               {
@@ -367,7 +395,7 @@ router.post('/create-chatbot-project',
               }, process.env.SECRET)
             res.cookie('useremail', useremail);
             res.cookie('access_token', signinToken);
-            return res.status(200).json({ severity: 'success', message: 'Project created successfully.' })
+            return res.status(200).json({ severity: 'success', message: 'Project created successfully.',projectData:dataToInsert })
           }
           else {
             return res.status(500).json({ severity: 'error', message: 'Project could not be created.' })
@@ -398,7 +426,7 @@ router.post('/check-email-usability',
 
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(USERS_COLLECTION_NAME).findOne(
+          const response = await connectionObject.collection(process.env.USERS_COLLECTION_NAME).findOne(
             { useremail: useremail },
             { projection: { _id: 0, useremail: 1 } }
           )
@@ -462,7 +490,7 @@ router.post('/trainmodel',
       await getConnectionObject()
         .then(async (connectionObject) => {
 
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           console.log(response)
 
           if (response.length != 0 && response[0].hasOwnProperty('intents') && response[0]['intents'].length > 0) {
@@ -494,7 +522,7 @@ router.post('/trainmodel',
                     })
 
                     //updating currently active port and bot-online status for the chatbtot
-                    const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+                    const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
                       $set: {
                         "settings.currentBotServerPort": botServerPort,
                         "settings.isBotServerOnline": true
@@ -517,7 +545,7 @@ router.post('/trainmodel',
                 })
 
                 //updating currently active port and bot-online status for the chatbtot
-                const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+                const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
                   $set: {
                     "settings.currentBotServerPort": botServerPort,
                     "settings.isBotServerOnline": true
@@ -572,24 +600,24 @@ router.post('/update-botserver-status',
       await getConnectionObject()
         .then(async (connectionObject) => {
 
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(searchQuery, options)
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(searchQuery, options)
           console.log(response)
 
           if (response && response.hasOwnProperty('settings') && response.settings.hasOwnProperty('currentBotServerPort')) {
             if (!isBotServerOnline) {
               console.log(response.settings.currentBotServerPort)
-              
+
               exec(`npx kill-port ${response.settings.currentBotServerPort}`, async (err, stdout, stderr) => {
                 if (err) {
                   return res.status(500).json({ severity: 'error', message: 'Model could not be deactivated at the moment. Please try again later.' })
                 }
                 if (stdout) {
-                  const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+                  const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
                     $set: {
                       "settings.isBotServerOnline": false
                     }
                   })
-                  return res.status(200).json({ isBotServerOnline:false,severity: 'success', message: 'Model deactivated successfully' })
+                  return res.status(200).json({ isBotServerOnline: false, severity: 'success', message: 'Model deactivated successfully' })
                 }
 
               });
@@ -598,13 +626,13 @@ router.post('/update-botserver-status',
               console.log('Turning on model')
               initializeAndRunBotServer(useremail, projectName, response.projectFolderName)
               //updating currently active port and bot-online status for the chatbtot
-              const r = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+              const r = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
                 $set: {
                   "settings.isBotServerOnline": true
                 }
               })
-              
-              return res.status(200).json({ isBotServerOnline:true,severity: 'success', message: 'Model is restarting...' })
+
+              return res.status(200).json({ isBotServerOnline: true, severity: 'success', message: 'Model is restarting...' })
             }
 
           }
@@ -619,6 +647,356 @@ router.post('/update-botserver-status',
         })
     }
   })
+
+
+
+//Route to update openAI model settings
+router.post('/update-openAI-settings',
+  body('projectName').notEmpty().trim(),
+  body('openAIApiKey').trim().escape(),
+  body('allowOpenAIRephraseResponse').isBoolean().notEmpty(),
+  body('selectedOpenAIModelForRephrasingBotResponse').isString().trim(),
+  body('allowOpenAIResponseGeneration').notEmpty().isBoolean().notEmpty(),
+  body('selectedOpenAIModelForResponseGeneration').isString().trim(),
+  body('allowOpenAIDataAugmentation').isBoolean().notEmpty(),
+  body('selectedOpenAIModelForQAndADataGeneration').isString(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+
+      return res.status(400).json({ severity: 'error', message: 'Required properties[projectName,status type] validation failed.' });
+    }
+    else {
+      console.log(req.body)
+      const {
+        projectName,
+        openAIApiKey,
+        allowOpenAIRephraseResponse,
+        selectedOpenAIModelForRephrasingBotResponse,
+        allowOpenAIResponseGeneration,
+        selectedOpenAIModelForResponseGeneration,
+        allowOpenAIDataAugmentation,
+        selectedOpenAIModelForQAndADataGeneration
+      } = req.body
+      const { useremail } = req.cookies
+      const searchQuery = { useremail, projectName }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const updateOpenAISettingResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(searchQuery, {
+            $set: {
+              "settings.openAISettings": {
+                datasetGeneration: {
+                  allow: allowOpenAIDataAugmentation,
+                  modelName: selectedOpenAIModelForQAndADataGeneration
+                },
+                fallbackResponse: {
+                  allow: allowOpenAIResponseGeneration,
+                  modelName: selectedOpenAIModelForResponseGeneration
+                },
+                rephraseBotResponse: {
+                  allow: allowOpenAIRephraseResponse,
+                  modelName: selectedOpenAIModelForRephrasingBotResponse
+                },
+                openAIApiKey: openAIApiKey
+              }
+            }
+          }, { upsert: true })
+          if (updateOpenAISettingResponse.modifiedCount == 1) {
+            return res.status(200).json({ severity: 'success', message: 'OpenAI settings updated successfully.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Database error occured while updating the settings' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+
+//Route to retrieve openAI model list
+router.post('/get-openAI-models-list',
+  body('projectName').notEmpty().isString().trim().escape()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+
+      const options = {
+        projection: { _id: 0, "openAIApiKey": "$settings.openAISettings.openAIApiKey" }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
+
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            const configuration = new openai.Configuration({
+              organization: '',
+              apiKey: response.openAIApiKey
+            })
+            const openAIClient = new openai.OpenAIApi(configuration)
+
+            // Call the models.list() method to retrieve a list of available models
+            const modelReadResponse = await openAIClient.listModels().then((response) => {
+
+              const modelList = response.data.data
+              const finalModalList = modelList.map(modelDetails => modelDetails.id)
+              return finalModalList
+
+            }).catch((error) => {
+              return { severity: 'error', message: 'Remote connection error occured while retrieving model list.' }
+            });
+
+
+            if (Array.isArray(modelReadResponse)) {
+              return res.status(200).json(modelReadResponse)
+            }
+            else {
+              return res.status(500).json(modelReadResponse)
+            }
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+//Route for generating and sendng bluk utterances
+router.post('/get-openAI-bulk-utterance-generation',
+  body('projectName').notEmpty().isString().trim().escape(),
+  body('utterancesForAug').isArray().notEmpty(),
+  body('numOfSamplesToGenerate').isInt().notEmpty()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+      console.log(req.body)
+
+      const options = {
+        projection: {
+          _id: 0,
+          "openAIApiKey": "$settings.openAISettings.openAIApiKey",
+          "modelName": "$settings.openAISettings.datasetGeneration.modelName"
+        }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
+
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            console.log(response)
+            const configuration = new openai.Configuration({
+              apiKey: response.openAIApiKey
+            })
+
+            const openAIClient = new openai.OpenAIApi(configuration)
+            const { utterancesForAug, numOfSamplesToGenerate } = req.body
+
+            const promises = utterancesForAug.map(async (utterance) => {
+              return openAIClient.createCompletion(
+                {
+                  model: response.modelName,
+                  prompt: `Generate as a dataset in JSON format for example {"data": [“Hi”, “Hello”]}. Instruction : Rephrase the sentence : "${utterance}" in ${numOfSamplesToGenerate} different ways.`,
+                  temperature: .8,
+                  max_tokens: 2048
+                }).then((response) => {
+                  const outputText = response.data.choices[0].text
+                  console.log(outputText)
+                  return JSON.parse(outputText)
+
+                }).catch((error) => {
+                  console.log(error)
+                  return { data: [`Variation for the utterance: ${utterance} could not be generated.`] }
+                })
+            })
+
+
+            Promise.all(promises)
+              .then(data => {
+                var augmentedList = []
+                var arrIndex = 0
+                while (arrIndex < data.length) {
+                  augmentedList = augmentedList.concat(data[arrIndex].data)
+                  arrIndex++;
+                }
+                console.log(augmentedList)
+                return res.status(200).json({ augmentedUtterancesList: augmentedList })
+              })
+              .catch(error => {
+                return res.status(500).json({ severity: 'error', message: 'Some error occured. Please try \n to ensure you have selected correct model i.e. model compatible with completion API \n Or try again with bit differnt sample utterances.' })
+              })
+
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+//Route for generating and sendng bluk answers or responses
+router.post('/get-openAI-bulk-answers-generation',
+  body('projectName').notEmpty().isString().trim().escape(),
+  body('answersForAug').isArray().notEmpty(),
+  body('numOfSamplesToGenerate').isInt().notEmpty()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI model list.' });
+    }
+    else {
+      const query = { useremail: req.cookies.useremail, projectName: req.body.projectName }
+      console.log(req.body)
+      const options = {
+        projection: {
+          _id: 0,
+          "openAIApiKey": "$settings.openAISettings.openAIApiKey",
+          "modelName": "$settings.openAISettings.rephraseBotResponse.modelName"
+        }
+      }
+
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
+
+          if (response && response.hasOwnProperty('openAIApiKey')) {
+            console.log(response)
+            const configuration = new openai.Configuration({
+              organization: '',
+              apiKey: response.openAIApiKey
+            })
+
+            const openAIClient = new openai.OpenAIApi(configuration)
+            const { answersForAug, numOfSamplesToGenerate } = req.body
+
+            const promises = answersForAug.map(async (answer) => {
+              return openAIClient.createCompletion(
+                {
+                  model: response.modelName,
+                  prompt: `Generate as a dataset in JSON format for example {"data": [“Hi”, “Hello”]}. Instruction : Rephrase the sentence : ${answer} in ${numOfSamplesToGenerate} different ways.`,
+                  temperature: .8,
+                  max_tokens: 2048
+                }).then((response) => {
+                  const outputText = response.data.choices[0].text
+                  console.log(outputText)
+                  return JSON.parse(outputText)
+
+                }).catch((error) => {
+                  console.log(error)
+                  return { data: [`Variation for the response: ${answer} could not be generated.`] }
+                })
+            })
+
+
+            Promise.all(promises)
+              .then(data => {
+                var augmentedList = []
+                var arrIndex = 0
+                while (arrIndex < data.length) {
+                  augmentedList = augmentedList.concat(data[arrIndex].data)
+                  arrIndex++;
+                }
+                console.log(augmentedList)
+                return res.status(200).json({ augmentedAnswersList: augmentedList })
+              })
+              .catch(error => {
+                return res.status(500).json({ severity: 'error', message: 'Some error occured. Please try \n to ensure you have selected correct model i.e. model compatible with completion API \n Or try again with bit differnt sample answers.' })
+              })
+
+
+          }
+          else {
+            return res.status(500).json({ severity: 'error', message: 'OpenAI API key not set. Therefore, retrieving model list failed. Pelase set OpenAPI key first.' })
+          }
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Some error occured while retrieving the OpenAI model list.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
+
+//Route to retrieve openAI model list
+router.post('/get-openAI-settings',
+  body('projectName').notEmpty().isString().trim().escape()
+  , async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.log(errors.array())
+      return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while retrieving openAI settings.' });
+    }
+    else {
+      //query for obraining the openAI settings
+      const query = {
+        useremail: req.cookies.useremail,
+        projectName: req.body.projectName
+      }
+      const options = {
+        projection: {
+          _id: 0,
+          openAIApiKey: "$settings.openAISettings.openAIApiKey",
+          rephraseBotResponse: "$settings.openAISettings.rephraseBotResponse",
+          fallbackResponse: "$settings.openAISettings.fallbackResponse",
+          datasetGeneration: "$settings.openAISettings.datasetGeneration"
+        }
+      }
+      await getConnectionObject()
+        .then(async (connectionObject) => {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
+          console.log(response)
+          return res.status(200).json(response)
+        })
+        .catch(error => {
+          logger.log(error)
+          return res.status(500).json({ severity: 'error', message: 'Database error occured while retrieving the OpenAI settings.' })
+        })
+        .finally(() => {
+
+        })
+    }
+  })
+
+
 
 //REVIEWED REMOVE THIS ONE
 router.post('/insert-qana-data/:type', async (req, res) => {
@@ -681,7 +1059,7 @@ router.post('/insert-qana-data/:type', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: dataToPush
         }, { upsert: true }
         )
@@ -697,7 +1075,7 @@ router.post('/insert-qana-data/:type', async (req, res) => {
       })
       .catch(error => {
         logger.log(error)
-        return res.status(500).json({ severity: 'error', message: 'Database error has occured while inserting QandA data. Please try again later or may be different intent name and/or Action Name should be specified.' })
+        return res.status(500).json({ severity: 'error', message: 'Database error has occured while inserting QandA data. Please try again later.' })
       })
       .finally(() => {
         //closeConnection()
@@ -728,7 +1106,8 @@ router.get('/get-project-data', async (req, res) => {
 
   await getConnectionObject()
     .then(async (connectionObject) => {
-      const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+      const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
+      console.log(response)
       if (response) {
         return res.status(200).json(response)
       }
@@ -765,7 +1144,7 @@ router.post('/save-project-data'
       logger.log(req.body)
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
             $set: {
               "projectName": projectName,
               "settings.nlu": settings.nlu,
@@ -776,7 +1155,7 @@ router.post('/save-project-data'
           if (response.modifiedCount == 1) {
 
             //retrieving projectFolder for the project
-            const projectFolder = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(
+            const projectFolder = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(
               { useremail: req.cookies.useremail },
               { projection: { _id: 0, projectFolderName: 1 } }
             )
@@ -838,8 +1217,8 @@ router.post('/get-project-status',
       await getConnectionObject()
         .then(async (connectionObject) => {
           const pipeline = piplineModelTrainingLog(req.cookies.useremail, req.body.projectName)
-          const responseTrainingLog = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
-          const responseProjectStatus = await connectionObject.collection(PROJECTS_COLLECTION_NAME).findOne(query, options)
+          const responseTrainingLog = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          const responseProjectStatus = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).findOne(query, options)
 
           if (responseProjectStatus && responseTrainingLog) {
             return res.status(200).json({ ...responseProjectStatus, trainingLog: responseTrainingLog })
@@ -883,7 +1262,7 @@ router.post('/get-qana-data',
 
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline)
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline)
             .skip((currentPage - 1) * batchSize)
             .limit(batchSize)
             .toArray()
@@ -923,7 +1302,7 @@ router.post('/search-qana-data',
 
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response_search = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline_search)
+          const response_search = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline_search)
             .toArray()
           if (response_search) return res.status(200).json(response_search)
         })
@@ -959,9 +1338,9 @@ router.post('/search-script-data',
       logger.log(req.body)
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
-        
-            return res.status(200).json(response)
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+
+          return res.status(200).json(response)
         })
         .catch(error => {
           return res.status(500).json({ severity: 'error', message: 'Database error has occured while searching script data. Please try again later' })
@@ -994,7 +1373,7 @@ router.post('/check-acitonName-availability',
         req.body.actionName)
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).find(
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).find(
             query,
             { projection: { _id: 0, useremail: 1 } }
           ).toArray();
@@ -1077,7 +1456,7 @@ router.post('/insert-qana-data/:type', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: dataToPush
         }, { upsert: true }
         )
@@ -1168,11 +1547,11 @@ router.post('/update-qana-data/:type', async (req, res) => {
       .then(async (connectionObject) => {
 
         //first of all the existing entry has to be pulled out from the store
-        const pullResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(filterForPull, {
+        const pullResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filterForPull, {
           $pull: dataToPull
         })
 
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: dataToPush
         }, { upsert: true }
         )
@@ -1217,7 +1596,7 @@ router.post('/delete-intent',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(filter, {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filter, {
             $pull: {
               "datasets.$.intents": { "intent": req.body.intent }
             }
@@ -1247,7 +1626,7 @@ router.post('/delete-script',
   body('locale').notEmpty().isString().trim().escape(),
   body('scriptName').notEmpty().isString().trim().escape()
   , async (req, res) => {
-    
+
     const filter = {
       'useremail': req.cookies.useremail,
       'projectName': req.body.projectName,
@@ -1259,16 +1638,16 @@ router.post('/delete-script',
       return res.status(400).json({ severity: 'error', message: 'Required properties validation failed while deleting the script' });
     }
     else {
-      
+
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(filter, {
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filter, {
             $pull: {
               "datasets.$.scripts": { "scriptName": req.body.scriptName }
             }
           })
           logger.log(response)
-          if (response.modifiedCount==1) {
+          if (response.modifiedCount == 1) {
             return res.status(200).json({})
           }
           else {
@@ -1313,7 +1692,7 @@ router.put('/update-entity-data/:entityType', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).update(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).update(query, {
           $set: {
             "datasets.$[locale].entities.$[entity].value": req.body.payload.value
           }
@@ -1345,7 +1724,7 @@ router.put('/update-entity-data/:entityType', async (req, res) => {
 router.post('/insert-entity-data/:entityType', async (req, res) => {
 
   var schemaValidationResult;
-  logger.log(req.params)
+
   if (req.params['entityType'] && req.params['entityType'] == entityType[0]) {
     schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_entity_synonym);
   }
@@ -1369,7 +1748,7 @@ router.post('/insert-entity-data/:entityType', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: {
             "datasets.$.entities": { ...req.body.payload }
           }
@@ -1426,7 +1805,7 @@ router.post('/get-entity-list',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           logger.log(response)
           if (response) {
             res.status(200).json(response)
@@ -1461,7 +1840,7 @@ router.post('/get-entity-name-list',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           logger.log(response)
           return res.status(200).json(response)
         })
@@ -1493,7 +1872,7 @@ router.post('/get-intent-data',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           if (response) {
             res.status(200).json(response)
           }
@@ -1529,7 +1908,7 @@ router.post('/get-qandadata-count',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
 
           if (response.length > 0) {
             return res.status(200).json(response[0])
@@ -1564,7 +1943,7 @@ router.post('/get-scripts-count',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           console.log(response)
           if (response.length > 0) {
             return res.status(200).json(response[0])
@@ -1601,7 +1980,7 @@ router.post('/get-actionCode',
       const pipeline = pipelineActionCode(req.cookies.useremail, req.body.projectName, req.body.locale, req.body.actionName)
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           if (response) {
             res.status(200).json(response[0])
           }
@@ -1638,7 +2017,7 @@ router.post('/get-script-names',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           if (response) {
             res.status(200).json(response)
           }
@@ -1675,7 +2054,7 @@ router.post('/get-intent-to-link-names',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           if (response) {
             res.status(200).json(response)
           }
@@ -1711,7 +2090,7 @@ router.post('/get-intent-only-names',
     else {
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
           if (response) {
             res.status(200).json(response)
           }
@@ -1751,7 +2130,7 @@ router.post('/save-intent-data', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: {
             "datasets.$.intents": { ...req.body.payload, 'linkedScript': '' }
           }
@@ -1812,7 +2191,7 @@ router.post('/save-script-data', async (req, res) => {
     await getConnectionObject()
       .then(async (connectionObject) => {
 
-        const checkpoint = await connectionObject.collection(PROJECTS_COLLECTION_NAME).find({
+        const checkpoint = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).find({
           'useremail': req.cookies.useremail,
           'projectName': req.body.projectName,
           'datasets.locale': req.body.locale,
@@ -1820,7 +2199,7 @@ router.post('/save-script-data', async (req, res) => {
         }).toArray()
         logger.log(checkpoint)
         if (checkpoint.length != 0) {
-          return res.status(500).json({ severity: 'error', message:  'Please choose different script name.' })
+          return res.status(500).json({ severity: 'error', message: 'Please choose different script name.' })
         }
 
         //processing each step in order to update related documents in database
@@ -1828,7 +2207,7 @@ router.post('/save-script-data', async (req, res) => {
           switch (step.stepTypeIndex) {
             case 1:
               const responseAddResponseName = await connectionObject
-                .collection(PROJECTS_COLLECTION_NAME)
+                .collection(process.env.PROJECTS_COLLECTION_NAME)
                 .updateOne({
                   'useremail': req.cookies.useremail,
                   'projectName': req.body.projectName,
@@ -1849,7 +2228,7 @@ router.post('/save-script-data', async (req, res) => {
               break;
             case 2:
               const responseAddResponseVariable = await connectionObject
-                .collection(PROJECTS_COLLECTION_NAME)
+                .collection(process.env.PROJECTS_COLLECTION_NAME)
                 .updateOne({
                   'useremail': req.cookies.useremail,
                   'projectName': req.body.projectName,
@@ -1880,7 +2259,7 @@ router.post('/save-script-data', async (req, res) => {
         Promise.all(finalScript).then(async (scriptFlow) => {
           req.body.payload.scriptFlow = scriptFlow
 
-          updateScriptResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(queryUpdateScripts, {
+          updateScriptResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateScripts, {
             $push: {
               "datasets.$.scripts": req.body.payload
             }
@@ -1888,7 +2267,7 @@ router.post('/save-script-data', async (req, res) => {
           )
 
           if (hasTriggeringIntent) {
-            updateIntentResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(queryUpdateIntent, {
+            updateIntentResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateIntent, {
               $set: {
                 "datasets.$[locale].intents.$[intent].linkedScript": req.body.payload.scriptName,
               }
@@ -1902,12 +2281,12 @@ router.post('/save-script-data', async (req, res) => {
           }
           if (hasTriggeringIntent) {
             if (updateIntentResponse.modifiedCount == 1 && updateScriptResponse.modifiedCount == 1) {
-              return res.status(200).json({ severity: 'success', message:  'Script data saved successfully.' })
+              return res.status(200).json({ severity: 'success', message: 'Script data saved successfully.' })
             }
           }
           else {
             if (updateScriptResponse.modifiedCount == 1) {
-              return res.status(200).json({ severity: 'success', message:  'Script data saved successfully.' })
+              return res.status(200).json({ severity: 'success', message: 'Script data saved successfully.' })
             }
           }
         })
@@ -1961,7 +2340,7 @@ router.post('/update-script-data', async (req, res) => {
     await getConnectionObject()
       .then(async (connectionObject) => {
 
-        const checkpoint = await connectionObject.collection(PROJECTS_COLLECTION_NAME).find({
+        const checkpoint = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).find({
           'useremail': req.cookies.useremail,
           'projectName': req.body.projectName,
           'datasets.locale': req.body.locale,
@@ -1976,7 +2355,7 @@ router.post('/update-script-data', async (req, res) => {
           switch (step.stepTypeIndex) {
             case 1:
               const responseAddResponseName = await connectionObject
-                .collection(PROJECTS_COLLECTION_NAME)
+                .collection(process.env.PROJECTS_COLLECTION_NAME)
                 .updateOne({
                   'useremail': req.cookies.useremail,
                   'projectName': req.body.projectName,
@@ -1998,7 +2377,7 @@ router.post('/update-script-data', async (req, res) => {
               break;
             case 2:
               const responseAddResponseVariable = await connectionObject
-                .collection(PROJECTS_COLLECTION_NAME)
+                .collection(process.env.PROJECTS_COLLECTION_NAME)
                 .updateOne({
                   'useremail': req.cookies.useremail,
                   'projectName': req.body.projectName,
@@ -2029,7 +2408,7 @@ router.post('/update-script-data', async (req, res) => {
         Promise.all(finalScript).then(async (scriptFlow) => {
           req.body.payload.scriptFlow = scriptFlow
 
-          updateScriptResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(queryUpdateScripts, {
+          updateScriptResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateScripts, {
             $push: {
               "datasets.$.scripts": req.body.payload
             }
@@ -2037,7 +2416,7 @@ router.post('/update-script-data', async (req, res) => {
           )
 
           if (hasTriggeringIntent) {
-            updateIntentResponse = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(queryUpdateIntent, {
+            updateIntentResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateIntent, {
               $set: {
                 "datasets.$[locale].intents.$[intent].linkedScript": req.body.payload.scriptName,
               }
@@ -2094,7 +2473,7 @@ router.post('/get-script-data',
       const pipeline = pipelineScriptData(useremail, projectName, locale)
       await getConnectionObject()
         .then(async (connectionObject) => {
-          var response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).aggregate(pipeline)
+          var response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline)
             .skip((currentPage - 1) * batchSize)
             .limit(batchSize)
             .toArray()
@@ -2133,7 +2512,7 @@ router.put('/update-intent-data', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
-        const response = await connectionObject.collection(PROJECTS_COLLECTION_NAME).updateOne(query, {
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $set: {
             "datasets.$[locale].intents.$[intent].description": req.body.payload.description,
             "datasets.$[locale].intents.$[intent].utterances": req.body.payload.utterances
@@ -2168,3 +2547,5 @@ app.use('/botmanagement', router)
 app.listen(port, () => {
   logger.log(`Bot Admin application started running on prot  ${port} `)
 })
+
+module.exports = {}
