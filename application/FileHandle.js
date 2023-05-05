@@ -22,6 +22,10 @@ dialog main
 `
 }
 
+function createdotEnvFile(destination_dir,data){
+    fse.writeFileSync(`${destination_dir}/.env`,data)
+}
+
 //function to copy bot template files to user's project file
 function copyBotTemplateFiles(source_dir, destination_dir) {
     return fse.copy(source_dir, destination_dir)
@@ -85,6 +89,13 @@ async function updateBotConfigurationOnFile(destination_dir, settings) {
 
             //replacing the exisiting port number with the integer
             object['settings']['api-server']['port'] = parseInt(settings.botServerPort)
+            //set frontend url for CORS
+            object['settings']['api-server']['cors']['origin'] = process.env.FRONTEND_URL
+            if(process.env.KEY_PATH && process.env.CERT_PATH && process.env.KEY_PATH !== "" && process.env.CERT_PATH !== ""){
+                //set key and cert properties
+                object['settings']['api-server']['key'] = process.env.KEY_PATH
+                object['settings']['api-server']['cert'] = process.env.CERT_PATH
+            }
             
             //replacing the threshold vlue for the unerlying NLP model
             object['settings']['nlp']['threshold'] = parseFloat(settings.nlu.threshold)
@@ -302,4 +313,4 @@ function readScripts(trainingData, scriptVariable, actionsObject) {
 
 
 
-module.exports = { copyBotTemplateFiles, updateBotConfigurationOnFile, prepareTrainingData }
+module.exports = { copyBotTemplateFiles, updateBotConfigurationOnFile, prepareTrainingData ,createdotEnvFile}
