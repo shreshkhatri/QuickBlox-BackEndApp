@@ -1,25 +1,37 @@
 {
-  "settings":
-   {
-    "nlp":{
-      "forceNER":true,
-      "modelFileName":"model.nlp",
-      "threshold":0.9
+  "settings": {
+    "nlp": {
+      "forceNER": true,
+      "modelFileName": "model.nlp",
+      "threshold": 0.9
     },
     "api-server": {
       "port": 3000,
-      "cors":{
+      "cors": {
         "origin": "http://localhost",
         "credentials": true
       }
     },
     "bot": {
-      "scripts": ["./script.dlg"],
-      "actions": ["./actions"]
+      "scripts": [
+        "./script.dlg"
+      ],
+      "actions": [
+        "./actions"
+      ]
     }
   },
-  "use": ["Basic",{
-    "className": "ExpressApiServer",
-    "path": "./custom-express-api-server"
-  }, "DirectlineConnector", "Bot","ConsoleConnector"]
+  "use": [
+    "Basic",
+    {
+      "className": "ExpressApiServer",
+      "path": "./custom-express-api-server"
+    },
+    {
+      "className": "DirectlineConnector",
+      "path": "./custom-directline-connector"
+    },
+    "Bot",
+    "ConsoleConnector"
+  ]
 }

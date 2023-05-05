@@ -9,7 +9,6 @@ const { exec } = require('child_process')
 const cors = require('cors');
 var cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
-const dotenv = require('dotenv').config()
 const express = require('express')
 const app = express()
 const port = 4000
