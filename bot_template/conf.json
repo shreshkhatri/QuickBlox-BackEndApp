@@ -31,7 +31,10 @@
       "className": "DirectlineConnector",
       "path": "./custom-directline-connector"
     },
-    "Bot",
+    {
+      "className": "Bot",
+      "path": "./custom-bot"
+    },
     "ConsoleConnector"
   ]
 }
