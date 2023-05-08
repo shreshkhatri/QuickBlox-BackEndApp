@@ -34,3 +34,5 @@ jobs:
           npm install
           cp -p /home/ubuntu/backend_env /home/ubuntu/QuickBlox-BackEndApp/.env
           pm2 start bot_admin_application.js --log app.log --merge-logs
+          sleep 10
+          cd /home/ubuntu/QuickBlox-BackEndApp && pm2 list
