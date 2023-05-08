@@ -30,7 +30,7 @@
   "scripts": {
     "start": "node bot_admin_application.js",
     "test": "jest",
-    "postinstall": "node configure.js && npm --prefix ./bot_template i && npm --prefix ./bot_template/custom-express-api-server i && cp -r ./bot_template/node_moduless/* ./bot_template/node_modules/"
+    "postinstall": "node configure.js && npm --prefix ./bot_template i && npm --prefix ./bot_template/custom-express-api-server i && npm --prefix ./bot_template/custom-directline-connector i && npm --prefix ./bot_template/custom-bot i"
   },
   "author": "",
   "license": "ISC"
