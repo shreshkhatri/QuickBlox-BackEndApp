@@ -1,4 +1,6 @@
 const { logger } = require('@nlpjs/logger');
+const dotenv = require('dotenv');
+dotenv.config();
 const openai = require('openai');
 const fse = require('fs-extra');
 const SOURCE_FOLDER = 'bot_template'
@@ -201,13 +203,23 @@ router.post('/login',
 
     //checking if user is already logged in
     if (access_token && useremail) {
-      jwt.verify(access_token, process.env.SECRET, (error, payload) => {
-        if (payload && payload.useremail == useremail) {
-          logger.log('Existing user login:')
-          return res.sendStatus(200)
+
+      try {
+        const tokendata = jwt.verify(access_token, process.env.SECRET);
+        if (tokendata.hasOwnProperty('useremail') && tokendata.useremail==useremail){
+          console.log('User login using token')
+          return res.sendStatus(200);
         }
-      })
+        else if (tokendata.hasOwnProperty('useremail') && tokendata.useremail!=useremail){
+          console.log('email ID is different')
+          return res.sendStatus(400);
+        }
+
+      } catch (error) {
+        return res.sendStatus(400);
+      }
     }
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ severity: 'error', message: 'Required properties[useremail/password] validation failed' });
@@ -386,7 +398,7 @@ router.post('/create-chatbot-project',
               .catch(error => {
                 logger.error(`The Bot template files could not be copied to the project folder ${projectFolderName}`)
               })
-            
+
 
             const signinToken = jwt.sign(
               {
@@ -394,7 +406,7 @@ router.post('/create-chatbot-project',
               }, process.env.SECRET)
             res.cookie('useremail', useremail);
             res.cookie('access_token', signinToken);
-            return res.status(200).json({ severity: 'success', message: 'Project created successfully.',projectData:dataToInsert })
+            return res.status(200).json({ severity: 'success', message: 'Project created successfully.', projectData: dataToInsert })
           }
           else {
             return res.status(500).json({ severity: 'error', message: 'Project could not be created.' })
@@ -450,7 +462,9 @@ router.post('/check-email-usability',
     }
   })
 
-// middleware for authenticating the token
+
+
+  // middleware for authenticating the token
 router.use((req, res, next) => {
   const { access_token, useremail } = req.cookies
 
@@ -1723,7 +1737,7 @@ router.put('/update-entity-data/:entityType', async (req, res) => {
 router.post('/insert-entity-data/:entityType', async (req, res) => {
 
   var schemaValidationResult;
-  
+
   if (req.params['entityType'] && req.params['entityType'] == entityType[0]) {
     schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_entity_synonym);
   }
