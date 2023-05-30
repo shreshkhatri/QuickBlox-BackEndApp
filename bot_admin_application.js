@@ -197,8 +197,9 @@ function initializeAndRunBotServer(useremail, projectName, projectFolderName) {
 
 router.post('/login',
   body('useremail').isEmail().trim().escape(),
-  body('password').notEmpty().trim().escape()
-  , async (req, res) => {
+  body('password').notEmpty().trim().escape(),
+  body('rememberMe').notEmpty().isBoolean(),
+  async (req, res) => {
     const { access_token, useremail } = req.cookies
 
     //checking if user is already logged in
@@ -225,7 +226,7 @@ router.post('/login',
       return res.status(400).json({ severity: 'error', message: 'Required properties[useremail/password] validation failed' });
     }
     else {
-      const { useremail, password } = req.body
+      const { useremail, password, rememberMe } = req.body
       await getConnectionObject()
         .then(async (connectionObject) => {
           const response = await connectionObject.collection(process.env.USERS_COLLECTION_NAME).findOne(
@@ -241,8 +242,16 @@ router.post('/login',
                 {
                   useremail: useremail
                 }, process.env.SECRET)
-              res.cookie('useremail', useremail);
-              res.cookie('access_token', signinToken);
+              
+              //by default the cookie is set to be expired after the current active browsing session
+              var cookieExpiryDate=0;
+              if(rememberMe){
+                //if user has chosen remember me option then the cookie will be set to be xpired in 6 months time
+                cookieExpiryDate = new Date();
+                cookieExpiryDate.setDate(cookieExpiryDate.getDate()+180)
+              }
+              res.cookie('useremail', useremail,{expires:cookieExpiryDate});
+              res.cookie('access_token', signinToken,{expires:cookieExpiryDate});
               logger.log('New user login')
               return res.status(200).json({ severity: 'success', message: 'Login Successful' })
             }
