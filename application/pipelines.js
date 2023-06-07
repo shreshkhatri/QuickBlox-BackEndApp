@@ -1,17 +1,17 @@
 const { removeStopwords } = require('stopword')
-const customStopwordsQandA=['user','usr','asks','ask','gets','take','for','to','you','he','they','i','is','are','they','the']
-const customStopwordsScrits=['user','usr','asks','ask','gets','take','for','to','you','he','they','i','script','story']
+const customStopwordsQandA = ['user', 'usr', 'asks', 'ask', 'gets', 'take', 'for', 'to', 'you', 'he', 'they', 'i', 'is', 'are', 'they', 'the']
+const customStopwordsScrits = ['user', 'usr', 'asks', 'ask', 'gets', 'take', 'for', 'to', 'you', 'he', 'they', 'i', 'script', 'story']
 
-function piplineModelTrainingLog(useremail, projectName,){
+function piplineModelTrainingLog(useremail, projectName,) {
   return [
     {
       '$match': {
-        'useremail': useremail, 
+        'useremail': useremail,
         'projectName': projectName
       }
     }, {
       '$project': {
-        '_id': 0, 
+        '_id': 0,
         'trainingLog': 1
       }
     }, {
@@ -159,7 +159,10 @@ function pipelineIntentName(useremail, projectName, locale) {
       }
     }, {
       '$match': {
-        'datasets.intents.linkedScript': ''
+        'datasets.intents.linkedScript': {
+          '$exists': true,
+          '$in': [null, '']
+        }
       }
     }, {
       '$project': {
@@ -191,7 +194,7 @@ function pipelineTrainingDataAndSettings(useremail, projectName, locale) {
         '_id': 0,
         'languages': 1,
         'settings': 1,
-        'projectFolderName':1,
+        'projectFolderName': 1,
         'locale': '$datasets.locale',
         'entities': '$datasets.entities',
         'intents': '$datasets.intents',
@@ -305,12 +308,12 @@ function piplineListOfIntentToLinkNames(useremail, projectName, locale) {
   return [
     {
       '$match': {
-        'useremail': useremail,
+        'useremail': useremail, 
         'projectName': projectName
       }
     }, {
       '$project': {
-        '_id': 0,
+        '_id': 0, 
         'datasets': 1
       }
     }, {
@@ -337,7 +340,7 @@ function piplineListOfIntentToLinkNames(useremail, projectName, locale) {
       }
     }, {
       '$project': {
-        'intentName': '$datasets.intents.intent',
+        'intentName': '$datasets.intents.intent', 
         'description': '$datasets.intents.description'
       }
     }
@@ -576,9 +579,9 @@ function getScriptsCount(useremail, projectName, locale) {
 
 
 function searchQandAData(useremail, projectName, locale, searchText) {
-  var tokens = removeStopwords(searchText.split(' '),customStopwordsQandA)
+  var tokens = removeStopwords(searchText.split(' '), customStopwordsQandA)
   tokens.push(searchText)
-  tokens = tokens.map(token=>new RegExp(token))
+  tokens = tokens.map(token => new RegExp(token))
   return [
     {
       '$match': {
@@ -609,7 +612,7 @@ function searchQandAData(useremail, projectName, locale, searchText) {
     }, {
       '$match': {
         'intents.linkedScript': {
-             '$exists': false
+          '$exists': false
         }
       }
     }, {
@@ -642,18 +645,18 @@ function searchQandAData(useremail, projectName, locale, searchText) {
 
 
 function searchScript(useremail, projectName, locale, searchText) {
-  var tokens = removeStopwords(searchText.split(' '),customStopwordsScrits)
+  var tokens = removeStopwords(searchText.split(' '), customStopwordsScrits)
   tokens.push(searchText)
-  tokens = tokens.map(token=>new RegExp(token))
+  tokens = tokens.map(token => new RegExp(token))
   return [
     {
       '$match': {
-        'useremail': useremail, 
+        'useremail': useremail,
         'projectName': projectName
       }
     }, {
       '$project': {
-        '_id': 0, 
+        '_id': 0,
         'datasets': 1
       }
     }, {
@@ -674,10 +677,10 @@ function searchScript(useremail, projectName, locale, searchText) {
       }
     }, {
       '$project': {
-        'scriptName': '$scripts.scriptName', 
-        'scriptDescription': '$scripts.scriptDescription', 
-        'triggeringIntent': '$scripts.triggeringIntent', 
-        'listOfResponseNames': '$scripts.listOfResponseNames', 
+        'scriptName': '$scripts.scriptName',
+        'scriptDescription': '$scripts.scriptDescription',
+        'triggeringIntent': '$scripts.triggeringIntent',
+        'listOfResponseNames': '$scripts.listOfResponseNames',
         'scriptFlow': '$scripts.scriptFlow'
       }
     }, {
@@ -698,6 +701,40 @@ function searchScript(useremail, projectName, locale, searchText) {
   ]
 }
 
+function pipelineGetScriptDataForUpdate(useremail, projectName, locale, scriptName) {
+  return [
+    {
+      '$match': {
+        'useremail': useremail,
+        'projectName': projectName
+      }
+    }, {
+      '$unwind': {
+        'path': '$datasets'
+      }
+    }, {
+      '$match': {
+        'datasets.locale': locale
+      }
+    }, {
+      '$unwind': {
+        'path': '$datasets.scripts'
+      }
+    }, {
+      '$match': {
+        'datasets.scripts.scriptName': scriptName
+      }
+    }, {
+      '$project': {
+        '_id': 0,
+        'triggeringIntent': '$datasets.scripts.triggeringIntent'
+      }
+    }
+  ]
+}
+
+
+
 module.exports = {
   pipelineQandAdataWithStaticResponse,
   pipelineTrainingDataAndSettings,
@@ -715,5 +752,6 @@ module.exports = {
   getScriptsCount,
   searchQandAData,
   searchScript,
-  piplineModelTrainingLog
+  piplineModelTrainingLog,
+  pipelineGetScriptDataForUpdate
 };

@@ -362,7 +362,7 @@ const schema_script_data = {
         },
         "triggeringIntent": {
           "description": "the triggering intent for the script",
-          "type": "string"
+          "type": ["string", "null"]
         },
         "scriptFlow": {
           "description": "list of steps for the script",

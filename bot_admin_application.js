@@ -43,6 +43,7 @@ const {
   piplineListOfIntentToLinkNames,
   pipelineScriptData,
   pipelineQandAdataWithDynamicResponse,
+  pipelineGetScriptDataForUpdate,
   pipelineIntentData } = require('./application/pipelines')
 const {
   copyBotTemplateFiles,
@@ -776,9 +777,8 @@ router.post('/get-openAI-models-list',
               return finalModalList
 
             }).catch((error) => {
-              return { severity: 'error', message: 'Remote connection error occured while retrieving model list.' }
+              return { severity: 'info', message: 'Remote connection error occured while retrieving model list.' }
             });
-
 
             if (Array.isArray(modelReadResponse)) {
               return res.status(200).json(modelReadResponse)
@@ -848,11 +848,11 @@ router.post('/get-openAI-bulk-utterance-generation',
                   max_tokens: 2048
                 }).then((response) => {
                   const outputText = response.data.choices[0].text
-                  console.log(outputText)
+                  console.log(response)
                   return JSON.parse(outputText)
 
                 }).catch((error) => {
-                  console.log(error)
+                  
                   return { data: [`Variation for the utterance: ${utterance} could not be generated.`] }
                 })
             })
@@ -1416,7 +1416,6 @@ router.post('/check-acitonName-availability',
     }
   })
 
-
 //REVIEWED
 router.post('/insert-qana-data/:type', async (req, res) => {
   var query, qnaType, schemaValidationResult, dataToPush;
@@ -1503,101 +1502,6 @@ router.post('/insert-qana-data/:type', async (req, res) => {
 
 })
 
-//REVIEWED
-router.post('/update-qana-data/:type', async (req, res) => {
-  var query, qnaType, schemaValidationResult, dataToPush, dataToPull, filterForPull;
-  logger.log(req.body)
-  if (req.params['type'] && req.params['type'] == qandaDataType[0]) {
-    qnaType = 0
-    schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_data);
-  }
-  else if (req.params['type'] && req.params['type'] == qandaDataType[1]) {
-    qnaType = 1
-    schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_data_with_action);
-
-  }
-
-  if (!schemaValidationResult.valid) {
-    logger.log(schemaValidationResult)
-    return res.status(400).json({ severity: 'error', 'message': schemaValidationResult.errors[0].path[schemaValidationResult.errors[0].path.length - 1] + ' ' + schemaValidationResult.errors[0].message })
-  }
-  else if (schemaValidationResult.valid) {
-    query = {
-      'useremail': req.cookies.useremail,
-      'projectName': req.body.projectName,
-      'datasets.locale': req.body.locale
-    }
-
-    filterForPull = {
-      'useremail': req.cookies.useremail,
-      'projectName': req.body.projectName,
-      'datasets.locale': req.body.locale
-    }
-
-    //the existing data has to be removed first before the updatd version can be saved
-    dataToPull = {
-      "datasets.$.intents": {
-        'intent': req.body.payload.intent
-      }
-    }
-    //if response is static type then we need to modify query and payload as well
-    if (qnaType == 0) {
-      dataToPush = {
-        "datasets.$.intents": {
-          'intent': req.body.payload.intent,
-          'description': req.body.payload.description,
-          'utterances': req.body.payload.utterances,
-          'answers': req.body.payload.answers
-        }
-      }
-    }
-    else if (qnaType == 1) {
-
-      dataToPush = {
-        "datasets.$.intents": {
-          'intent': req.body.payload.intent,
-          'description': req.body.payload.description,
-          'utterances': req.body.payload.utterances,
-          'actionName': req.body.payload.actionName,
-          'actionCode': req.body.payload.actionCode
-        }
-      }
-    }
-
-
-    await getConnectionObject()
-      .then(async (connectionObject) => {
-
-        //first of all the existing entry has to be pulled out from the store
-        const pullResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filterForPull, {
-          $pull: dataToPull
-        })
-
-        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
-          $push: dataToPush
-        }, { upsert: true }
-        )
-        logger.log(response)
-
-        if (response.modifiedCount == 1) {
-          return res.status(200).json({ severity: 'success', message: 'Data updated successfully.' })
-        }
-        else {
-          return res.status(400).json({ severity: 'error', message: 'Data updating failed.' })
-        }
-      })
-      .catch(error => {
-        logger.log(error)
-        return res.status(500).json({ severity: 'error', message: 'Database error has occured while updating QandA data. Please try again later' })
-      })
-      .finally(() => {
-        //closeConnection()
-      })
-  }
-
-})
-
-
 //route for deleting intent
 router.post('/delete-intent',
   body('projectName').notEmpty().isString().trim().escape(),
@@ -1640,7 +1544,6 @@ router.post('/delete-intent',
         })
     }
   })
-
 
 //route for deleting script
 router.post('/delete-script',
@@ -1685,8 +1588,6 @@ router.post('/delete-script',
         })
     }
   })
-
-
 
 router.put('/update-entity-data/:entityType', async (req, res) => {
   var schemaValidationResult;
@@ -1876,7 +1777,6 @@ router.post('/get-entity-name-list',
     }
   })
 
-
 //Routes for handling Intent data
 router.post('/get-intent-data',
   body('projectName').notEmpty().isString().trim().escape(),
@@ -1984,7 +1884,6 @@ router.post('/get-scripts-count',
     }
   })
 
-
 //Routes for geting action code
 router.post('/get-actionCode',
   body('projectName').notEmpty().isString().trim().escape(),
@@ -2019,8 +1918,6 @@ router.post('/get-actionCode',
         })
     }
   })
-
-
 
 //Routes for handling Intent data
 router.post('/get-script-names',
@@ -2135,7 +2032,6 @@ router.post('/save-intent-data', async (req, res) => {
   logger.log(req.body)
   schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_intent_data);
 
-
   if (!schemaValidationResult.valid) {
     logger.log(schemaValidationResult)
     return res.status(400).json({ 'code': 400, 'message': schemaValidationResult.errors[0].path[schemaValidationResult.errors[0].path.length - 1] + ' ' + schemaValidationResult.errors[0].message })
@@ -2154,7 +2050,7 @@ router.post('/save-intent-data', async (req, res) => {
       .then(async (connectionObject) => {
         const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $push: {
-            "datasets.$.intents": { ...req.body.payload, 'linkedScript': '' }
+            "datasets.$.intents": { ...req.body.payload }
           }
         }, { upsert: true }
         )
@@ -2324,11 +2220,106 @@ router.post('/save-script-data', async (req, res) => {
 })
 
 
+//REVIEWED
+router.post('/update-qana-data/:type', async (req, res) => {
+  var query, qnaType, schemaValidationResult, dataToPush, dataToPull, filterForPull;
+  logger.log(req.body)
+  if (req.params['type'] && req.params['type'] == qandaDataType[0]) {
+    qnaType = 0
+    schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_data);
+  }
+  else if (req.params['type'] && req.params['type'] == qandaDataType[1]) {
+    qnaType = 1
+    schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_qanda_data_with_action);
+
+  }
+
+  if (!schemaValidationResult.valid) {
+    logger.log(schemaValidationResult)
+    return res.status(400).json({ severity: 'error', 'message': schemaValidationResult.errors[0].path[schemaValidationResult.errors[0].path.length - 1] + ' ' + schemaValidationResult.errors[0].message })
+  }
+  else if (schemaValidationResult.valid) {
+    query = {
+      'useremail': req.cookies.useremail,
+      'projectName': req.body.projectName,
+      'datasets.locale': req.body.locale
+    }
+
+    filterForPull = {
+      'useremail': req.cookies.useremail,
+      'projectName': req.body.projectName,
+      'datasets.locale': req.body.locale
+    }
+
+    //the existing data has to be removed first before the updatd version can be saved
+    dataToPull = {
+      "datasets.$.intents": {
+        'intent': req.body.payload.intent
+      }
+    }
+
+    //if response is static type then we need to modify query and payload as well
+    if (qnaType == 0) {
+      dataToPush = {
+        "datasets.$.intents": {
+          'intent': req.body.payload.intent,
+          'description': req.body.payload.description,
+          'utterances': req.body.payload.utterances,
+          'answers': req.body.payload.answers
+        }
+      }
+    }
+    else if (qnaType == 1) {
+
+      dataToPush = {
+        "datasets.$.intents": {
+          'intent': req.body.payload.intent,
+          'description': req.body.payload.description,
+          'utterances': req.body.payload.utterances,
+          'actionName': req.body.payload.actionName,
+          'actionCode': req.body.payload.actionCode
+        }
+      }
+    }
+
+
+    await getConnectionObject()
+      .then(async (connectionObject) => {
+
+        //first of all the existing entry has to be pulled out from the store
+        const pullResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filterForPull, {
+          $pull: dataToPull
+        })
+
+        const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
+          $push: dataToPush
+        }, { upsert: true }
+        )
+        logger.log(response)
+
+        if (response.modifiedCount == 1) {
+          return res.status(200).json({ severity: 'success', message: 'Data updated successfully.' })
+        }
+        else {
+          return res.status(400).json({ severity: 'error', message: 'Data updating failed.' })
+        }
+      })
+      .catch(error => {
+        logger.log(error)
+        return res.status(500).json({ severity: 'error', message: 'Database error has occured while updating QandA data. Please try again later' })
+      })
+      .finally(() => {
+        //closeConnection()
+      })
+  }
+
+})
+
 
 //function to update existing script 
 router.post('/update-script-data', async (req, res) => {
 
-  var schemaValidationResult, queryUpdateIntent, updateScriptResponse, updateIntentResponse;
+  var schemaValidationResult, queryUpdateIntent, updateScriptResponse, updateIntentResponse, dataToPush, scriptDataToPull, filterForScriptPull,removeLinkResponse;
   logger.log(req.body)
 
   schemaValidationResult = jsonSchemaValidator.validate(req.body, schema_script_data);
@@ -2340,7 +2331,7 @@ router.post('/update-script-data', async (req, res) => {
   }
   else if (schemaValidationResult.valid) {
 
-    var hasTriggeringIntent = req.body.payload.triggeringIntent == '' ? false : true
+    var hasTriggeringIntent = (req.body.payload.triggeringIntent == '') || (req.body.payload.triggeringIntent == null) ? false : true
 
     const queryUpdateScripts = {
       'useremail': req.cookies.useremail,
@@ -2348,7 +2339,20 @@ router.post('/update-script-data', async (req, res) => {
       'datasets.locale': req.body.locale,
     }
 
+    filterForScriptPull = {
+      'useremail': req.cookies.useremail,
+      'projectName': req.body.projectName,
+      'datasets.locale': req.body.locale
+    }
 
+    //the existing script data has to be removed first before the updatd version can be saved
+    scriptDataToPull = {
+      "datasets.$.scripts": {
+        'scriptName': req.body.payload.scriptName
+      }
+    }
+
+  
     if (hasTriggeringIntent) {
       queryUpdateIntent = {
         'useremail': req.cookies.useremail,
@@ -2361,16 +2365,20 @@ router.post('/update-script-data', async (req, res) => {
 
     await getConnectionObject()
       .then(async (connectionObject) => {
+        
+        const pipeline = pipelineGetScriptDataForUpdate(
+          req.cookies.useremail, 
+          req.body.projectName, 
+          req.body.locale,
+          req.body.payload.scriptName
+          )
 
-        const checkpoint = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).find({
-          'useremail': req.cookies.useremail,
-          'projectName': req.body.projectName,
-          'datasets.locale': req.body.locale,
-          'datasets.scripts.scriptName': { $eq: req.body.payload.scriptName }, //to ensure that no duplicate for script names will be there
-        }).toArray()
+        const checkpoint = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).aggregate(pipeline).toArray()
         if (checkpoint.length == 0) {
           return res.status(500).json({ 'code': 500, 'message': 'Internal server error occured.' })
         }
+
+        const existingTriggeringIntent = checkpoint[0].triggeringIntent;
 
         //processing each step in order to update related documents in database
         const finalScript = req.body.payload.scriptFlow.map(async (step) => {
@@ -2386,8 +2394,7 @@ router.post('/update-script-data', async (req, res) => {
                   {
                     $push: {
                       "datasets.$.actions": {
-                        'actionName': step.actionName,
-                        'actionCode': step.actionCode
+                        'actionName': step.actionName
                       }
                     }
                   }
@@ -2430,6 +2437,12 @@ router.post('/update-script-data', async (req, res) => {
         Promise.all(finalScript).then(async (scriptFlow) => {
           req.body.payload.scriptFlow = scriptFlow
 
+           //first of all the existing entry has to be pulled out from the store
+        const pullResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(filterForScriptPull, {
+          $pull: scriptDataToPull
+        })
+
+
           updateScriptResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateScripts, {
             $push: {
               "datasets.$.scripts": req.body.payload
@@ -2450,6 +2463,31 @@ router.post('/update-script-data', async (req, res) => {
             }
             )
           }
+
+          if (existingTriggeringIntent && !hasTriggeringIntent){
+
+            const queryUpdateIntentScriptLink = {
+              'useremail': req.cookies.useremail,
+              'projectName': req.body.projectName,
+              'datasets.locale': req.body.locale,
+              'datasets.intents.intent': existingTriggeringIntent //to ensure that no duplicate for script names will be there
+            }
+
+            removeLinkResponse = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(queryUpdateIntentScriptLink, {
+              $set: {
+                "datasets.$[locale].intents.$[intent].linkedScript": null,
+              }
+            }, {
+              arrayFilters: [
+                { 'locale.locale': req.body.locale },
+                { 'intent.intent': existingTriggeringIntent }
+              ]
+            }
+            )
+            
+          }
+
+
           if (hasTriggeringIntent) {
             if (updateIntentResponse.modifiedCount == 1 && updateScriptResponse.modifiedCount == 1) {
               res.status(200).json({ 'code': 200, 'message': '' })
@@ -2537,7 +2575,8 @@ router.put('/update-intent-data', async (req, res) => {
         const response = await connectionObject.collection(process.env.PROJECTS_COLLECTION_NAME).updateOne(query, {
           $set: {
             "datasets.$[locale].intents.$[intent].description": req.body.payload.description,
-            "datasets.$[locale].intents.$[intent].utterances": req.body.payload.utterances
+            "datasets.$[locale].intents.$[intent].utterances": req.body.payload.utterances,
+            "datasets.$[locale].intents.$[intent].linkedScript": req.body.payload.linkedScript
           }
         }, {
           arrayFilters: [

@@ -211,47 +211,33 @@ function readScripts(trainingData, scriptVariable, actionsObject) {
                         //[condition evaluation]
                         case 3:
 
-                            if (step.hasOwnProperty('query') && step.hasOwnProperty('stepToRunIfTrue')) {
+                            if (step.hasOwnProperty('conditions') && step.hasOwnProperty('stepToRunIfTrue')) {
+                                
                                 var condition = ''
                                 var nextStepToRun = ''
-                                const query = step.query
+                                var connector = step.connector == 'AND' ? ' && ' : ' || '
+                                const conditions = step.conditions
 
                                 //processing just a rule
-                                if (query.hasOwnProperty('rules') && query.rules.length == 1) {
-                                    var rule = query.rules[0]
+                                if (conditions.length == 1) {
+                                    var rule = conditions[0]
 
                                     condition = ' ['
-                                    condition += rule.field.trim()
-                                    if (rule.operator.trim() == "=") {
-                                        condition += "=="
-                                    } else {
-                                        condition += rule.operator
-                                    }
-                                    condition += '\"' + rule.value + '\"'
+                                    condition += rule.contextVariable.trim();
+                                    condition += rule.operator;
+                                    condition += ' ' + rule.testValue + ' '
                                     condition += ']'
                                 }
 
 
                                 //processing rules 
-                                if (query.hasOwnProperty('rules') && query.rules.length > 1) {
-                                    const logicalOperatorString = query.combinator.trim().toLowerCase()
-                                    var logicalOperator = undefined
-                                    if (logicalOperatorString == "and") {
-                                        logicalOperator = ' && '
-                                    }
-                                    else if (logicalOperatorString == "or") {
-                                        logicalOperator = ' || '
-                                    }
+                                if (conditions.length > 1) {
                                     condition = ' ['
-                                    query.rules.forEach((rule) => {
-                                        condition += rule.field.trim()
-                                        if (rule.operator.trim() == "=") {
-                                            condition += "=="
-                                        } else {
-                                            condition += rule.operator
-                                        }
-                                        condition += '\"' + rule.value + '\"'
-                                        condition += logicalOperator
+                                    conditions.forEach((condition) => {
+                                        condition += condition.contextVariable.trim()
+                                        condition += condition.operator
+                                        condition += ' ' + condition.testValue + ' '
+                                        condition += connector
                                     })
                                     condition += ']'
                                 }
