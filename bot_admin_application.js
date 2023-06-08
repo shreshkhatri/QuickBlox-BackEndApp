@@ -9,7 +9,6 @@ const saltRounds = 12;
 const salt = bcrypt.genSaltSync(saltRounds)
 const { exec } = require('child_process')
 const cors = require('cors');
-const dotenv = require('dotenv').config()
 var cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
 const express = require('express')
@@ -27,7 +26,8 @@ const {
   schema_script_data,
   schema_project_data,
   schema_intent_data } = require('./application/dataschemas')
-const {
+
+  const {
   pipelineActionCode,
   pipelineQandAdataWithStaticResponse,
   pipelineTrainingDataAndSettings,
@@ -46,6 +46,7 @@ const {
   pipelineQandAdataWithDynamicResponse,
   pipelineGetScriptDataForUpdate,
   pipelineIntentData } = require('./application/pipelines')
+  
 const {
   copyBotTemplateFiles,
   updateBotConfigurationOnFile,
@@ -2465,6 +2466,7 @@ router.post('/update-script-data', async (req, res) => {
             )
           }
 
+          //means old script had triggering intent but updated script does not have triggering intent
           if (existingTriggeringIntent && !hasTriggeringIntent){
 
             const queryUpdateIntentScriptLink = {
@@ -2488,10 +2490,9 @@ router.post('/update-script-data', async (req, res) => {
             
           }
 
-
           if (hasTriggeringIntent) {
-            if (updateIntentResponse.modifiedCount == 1 && updateScriptResponse.modifiedCount == 1) {
-              res.status(200).json({ 'code': 200, 'message': '' })
+            if (updateScriptResponse.modifiedCount == 1) {
+              res.status(200).json({ 'code': 200, 'message': 'Script updated successfully!' })
             }
             else throw new Error()
           }
